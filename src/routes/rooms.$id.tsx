@@ -111,7 +111,7 @@ function RoomPage() {
             {membership && (
               <form onSubmit={handleSubmit(v => checkin.mutate(v))} className="card-rise p-5 space-y-3">
                 <h3 className="font-bold uppercase text-sm">Log today's check-in</h3>
-                <input type="number" min={1} max={room.challenge_days} placeholder="Day #" {...register("day_number")} className="w-full px-3 py-2.5" />
+                <input type="number" min={1} max={room.challenge_days ?? 7} placeholder="Day #" {...register("day_number")} className="w-full px-3 py-2.5" />
                 <textarea placeholder="What did you do today?" {...register("content")} className="w-full px-3 py-2.5 min-h-[80px]" />
                 <button disabled={isSubmitting} type="submit" className="btn-primary w-full">{isSubmitting ? "..." : "Submit check-in"}</button>
               </form>
@@ -135,7 +135,7 @@ function RoomPage() {
           <aside className="card-rise p-5 h-fit lg:sticky lg:top-20">
             <h3 className="font-bold uppercase text-sm mb-3">Challenge ladder</h3>
             <div className="grid grid-cols-7 gap-1.5">
-              {Array.from({ length: room.challenge_days }).map((_, i) => {
+              {Array.from({ length: room.challenge_days ?? 7 }).map((_, i) => {
                 const done = (membership?.check_in_count ?? 0) > i;
                 return (
                   <div key={i} className={`aspect-square rounded-md flex items-center justify-center text-xs font-stat font-bold ${done ? "bg-accent-mint text-bg-primary" : "bg-bg-surface text-text-tertiary"}`}>
