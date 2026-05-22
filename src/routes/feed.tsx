@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import { Flame, Trophy, ChevronLeft, ChevronRight } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,13 +10,30 @@ export const Route = createFileRoute("/feed")({
   component: FeedPage,
 });
 
+
 const CATEGORIES = ["all", "discipline", "fitness", "study", "entrepreneur", "mindset", "finance", "morning", "sports"] as const;
 const PAGE_SIZE = 9;
 
 function FeedPage() {
   const { user } = useAuth();
+  const qc = useQueryClient();
   const [cat, setCat] = useState<(typeof CATEGORIES)[number]>("all");
   const [page, setPage] = useState(0);
+
+  useEffect(() => {
+    const ch = supabase
+      .channel("videos-feed")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "videos" }, () => {
+        qc.invalidateQueries({ queryKey: ["feed"] });
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "videos" }, () => {
+        qc.invalidateQueries({ queryKey: ["feed"] });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [qc]);
+
+
 
   const { data: videos, isLoading } = useQuery({
     queryKey: ["feed", cat, page],
