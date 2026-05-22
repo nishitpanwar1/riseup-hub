@@ -16,8 +16,24 @@ const PAGE_SIZE = 9;
 
 function FeedPage() {
   const { user } = useAuth();
+  const qc = useQueryClient();
   const [cat, setCat] = useState<(typeof CATEGORIES)[number]>("all");
   const [page, setPage] = useState(0);
+
+  useEffect(() => {
+    const ch = supabase
+      .channel("videos-feed")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "videos" }, () => {
+        qc.invalidateQueries({ queryKey: ["feed"] });
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "videos" }, () => {
+        qc.invalidateQueries({ queryKey: ["feed"] });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [qc]);
+
+
 
   const { data: videos, isLoading } = useQuery({
     queryKey: ["feed", cat, page],
