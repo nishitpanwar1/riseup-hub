@@ -82,7 +82,7 @@ function ProfilePage() {
               {profile.bio && <p className="mt-2 text-text-primary">{profile.bio}</p>}
               <div className="flex gap-4 mt-4 text-sm font-stat">
                 <Stat icon={<Users className="w-4 h-4" />} label="followers" value={profile.follower_count ?? 0} />
-                <Stat icon={<Eye className="w-4 h-4" />} label="total views" value={profile.total_views ?? 0} />
+                <Stat icon={<Eye className="w-4 h-4" />} label="total views" value={Number(profile.total_views ?? 0)} />
                 <Stat icon={<Flame className="w-4 h-4 text-brand-orange" />} label="streak" value={streak?.current_streak ?? 0} />
               </div>
             </div>
