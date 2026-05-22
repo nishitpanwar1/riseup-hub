@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import { Flame, Trophy, ChevronLeft, ChevronRight } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/use-auth";
 export const Route = createFileRoute("/feed")({
   component: FeedPage,
 });
+
 
 const CATEGORIES = ["all", "discipline", "fitness", "study", "entrepreneur", "mindset", "finance", "morning", "sports"] as const;
 const PAGE_SIZE = 9;
