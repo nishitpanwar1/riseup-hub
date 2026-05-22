@@ -80,7 +80,7 @@ function AuthPage() {
           <div className="flex-1 h-px bg-[#4A2D7A]" /> OR <div className="flex-1 h-px bg-[#4A2D7A]" />
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
+        <form method="post" action="#" onSubmit={(e) => { e.preventDefault(); e.stopPropagation(); void handleSubmit(onSubmit)(e); }} className="space-y-3">
           {mode === "signup" && (
             <Field label="Display name" error={errors.displayName?.message}>
               <input {...register("displayName")} placeholder="Your name" className="w-full px-3 py-2.5" />
