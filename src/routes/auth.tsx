@@ -15,7 +15,7 @@ export const Route = createFileRoute("/auth")({
 const schema = z.object({
   email: z.string().email(),
   password: z.string().min(6, "Min 6 characters"),
-  displayName: z.string().min(2).optional(),
+  displayName: z.string().min(2, "Min 2 characters").or(z.literal("")).optional(),
 });
 type FormVals = z.infer<typeof schema>;
 
