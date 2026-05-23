@@ -1,9 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { Heart, Bookmark, Flame, Users, Share2, Play, Volume2, VolumeX } from "lucide-react";
+import { Heart, Bookmark, Flame, Users, Share2, Play, Volume2, VolumeX, ChevronLeft } from "lucide-react";
 import toast from "react-hot-toast";
-import { Link } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -26,6 +25,8 @@ type Short = {
 
 function ShortsPage() {
   const { user } = useAuth();
+  const nav = useNavigate();
+  const qc = useQueryClient();
   const [muted, setMuted] = useState(true);
   const [activeId, setActiveId] = useState<string | null>(null);
   const scrollerRef = useRef<HTMLDivElement>(null);
@@ -45,16 +46,15 @@ function ShortsPage() {
     },
   });
 
-  // Realtime: refresh when new shorts arrive
   useEffect(() => {
     const channel = supabase
       .channel("shorts-rt")
       .on("postgres_changes", { event: "*", schema: "public", table: "videos" }, () => {
-        // simple refetch by invalidating via query key would need queryClient; use reload trick
+        qc.invalidateQueries({ queryKey: ["shorts"] });
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, []);
+  }, [qc]);
 
   if (isLoading) return <CenterMsg>Loading the arena…</CenterMsg>;
   if (!data || data.length === 0) {
@@ -73,6 +73,13 @@ function ShortsPage() {
       <Link to="/" className="absolute top-4 left-4 z-40 font-display font-black text-lg flex items-center gap-2 text-white">
         <Flame className="w-5 h-5 text-brand-orange" /> RISEUP
       </Link>
+      <button
+        onClick={() => nav({ to: "/feed" })}
+        className="absolute top-14 left-4 z-40 w-10 h-10 rounded-full bg-black/50 backdrop-blur flex items-center justify-center text-white"
+        aria-label="Back to feed"
+      >
+        <ChevronLeft className="w-6 h-6" />
+      </button>
       <button
         onClick={() => setMuted(m => !m)}
         className="absolute top-4 right-4 z-40 w-10 h-10 rounded-full bg-black/50 backdrop-blur flex items-center justify-center text-white"
