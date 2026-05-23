@@ -1,6 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Heart, Bookmark, Flame, Users, Share2, Play, Volume2, VolumeX, ChevronLeft } from "lucide-react";
 import toast from "react-hot-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,44 +19,129 @@ type Short = {
   like_count: number;
   save_count: number;
   user_id: string;
+  created_at: string;
   profiles: { username: string; display_name: string; avatar_url: string | null; creator_tier: string } | null;
 };
+
+const PAGE = 8;
+const STORAGE_KEY = "riseup:shorts:active";
+
+const SELECT = "id, title, description, category, video_url, thumbnail_url, like_count, save_count, user_id, created_at, profiles(username, display_name, avatar_url, creator_tier)";
 
 function ShortsPage() {
   const { user } = useAuth();
   const nav = useNavigate();
-  const qc = useQueryClient();
   const [muted, setMuted] = useState(true);
+  const [items, setItems] = useState<Short[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const scrollerRef = useRef<HTMLDivElement>(null);
+  const itemRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const restoredRef = useRef(false);
+  const seenIds = useRef<Set<string>>(new Set());
 
-  const { data, isLoading } = useQuery<Short[]>({
-    queryKey: ["shorts"],
-    queryFn: async () => {
+  // initial load
+  useEffect(() => {
+    (async () => {
       const { data, error } = await supabase
         .from("videos")
-        .select("id, title, description, category, video_url, thumbnail_url, like_count, save_count, user_id, profiles(username, display_name, avatar_url, creator_tier)")
+        .select(SELECT)
         .eq("status", "active")
         .eq("is_short", true)
         .order("created_at", { ascending: false })
-        .limit(30);
-      if (error) throw error;
-      return (data ?? []) as unknown as Short[];
-    },
-  });
+        .limit(PAGE);
+      if (!error && data) {
+        const rows = data as unknown as Short[];
+        rows.forEach(r => seenIds.current.add(r.id));
+        setItems(rows);
+        setHasMore(rows.length === PAGE);
+      }
+      setLoading(false);
+    })();
+  }, []);
 
+  // load next page (older items, cursor = created_at)
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore || items.length === 0) return;
+    setLoadingMore(true);
+    const cursor = items[items.length - 1].created_at;
+    const { data, error } = await supabase
+      .from("videos")
+      .select(SELECT)
+      .eq("status", "active")
+      .eq("is_short", true)
+      .lt("created_at", cursor)
+      .order("created_at", { ascending: false })
+      .limit(PAGE);
+    if (!error && data) {
+      const rows = (data as unknown as Short[]).filter(r => !seenIds.current.has(r.id));
+      rows.forEach(r => seenIds.current.add(r.id));
+      setItems(prev => [...prev, ...rows]);
+      setHasMore(rows.length === PAGE);
+    }
+    setLoadingMore(false);
+  }, [loadingMore, hasMore, items]);
+
+  // realtime: prepend new uploads
   useEffect(() => {
     const channel = supabase
       .channel("shorts-rt")
-      .on("postgres_changes", { event: "*", schema: "public", table: "videos" }, () => {
-        qc.invalidateQueries({ queryKey: ["shorts"] });
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "videos" }, async (payload) => {
+        const row: any = payload.new;
+        if (!row || row.is_short !== true || row.status !== "active" || seenIds.current.has(row.id)) return;
+        // fetch with profile join
+        const { data } = await supabase.from("videos").select(SELECT).eq("id", row.id).maybeSingle();
+        if (data) {
+          seenIds.current.add(row.id);
+          setItems(prev => [data as unknown as Short, ...prev]);
+        }
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "videos" }, (payload) => {
+        const row: any = payload.new;
+        if (!row) return;
+        setItems(prev => prev.map(s => s.id === row.id ? { ...s, like_count: row.like_count, save_count: row.save_count } : s));
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [qc]);
+  }, []);
 
-  if (isLoading) return <CenterMsg>Loading the arena…</CenterMsg>;
-  if (!data || data.length === 0) {
+  // restore active item once items load
+  useEffect(() => {
+    if (restoredRef.current || items.length === 0) return;
+    const saved = typeof window !== "undefined" ? sessionStorage.getItem(STORAGE_KEY) : null;
+    const target = saved && items.find(i => i.id === saved) ? saved : items[0].id;
+    setActiveId(target);
+    // scroll without smooth on restore
+    requestAnimationFrame(() => {
+      const el = itemRefs.current.get(target);
+      if (el && scrollerRef.current) {
+        scrollerRef.current.scrollTo({ top: el.offsetTop, behavior: "auto" });
+      }
+    });
+    restoredRef.current = true;
+  }, [items]);
+
+  // persist active id
+  useEffect(() => {
+    if (activeId) sessionStorage.setItem(STORAGE_KEY, activeId);
+  }, [activeId]);
+
+  // load more when active is near the end
+  useEffect(() => {
+    if (!activeId || items.length === 0) return;
+    const idx = items.findIndex(i => i.id === activeId);
+    if (idx >= 0 && idx >= items.length - 3) loadMore();
+  }, [activeId, items, loadMore]);
+
+  const registerRef = useCallback((id: string, el: HTMLDivElement | null) => {
+    if (el) itemRefs.current.set(id, el);
+    else itemRefs.current.delete(id);
+  }, []);
+
+  if (loading) return <CenterMsg>Loading the arena…</CenterMsg>;
+  if (items.length === 0) {
     return (
       <CenterMsg>
         <p className="font-display font-black text-3xl uppercase">No shorts yet</p>
@@ -69,7 +153,6 @@ function ShortsPage() {
 
   return (
     <div className="fixed inset-0 bg-black overflow-hidden">
-      {/* Top nav */}
       <Link to="/" className="absolute top-4 left-4 z-40 font-display font-black text-lg flex items-center gap-2 text-white">
         <Flame className="w-5 h-5 text-brand-orange" /> RISEUP
       </Link>
@@ -88,13 +171,12 @@ function ShortsPage() {
         {muted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
       </button>
 
-      {/* Vertical snap scroller */}
       <div
         ref={scrollerRef}
         className="h-full w-full overflow-y-scroll snap-y snap-mandatory scroll-smooth"
         style={{ scrollSnapType: "y mandatory" }}
       >
-        {data.map((s) => (
+        {items.map((s) => (
           <ShortItem
             key={s.id}
             short={s}
@@ -102,8 +184,15 @@ function ShortsPage() {
             isActive={activeId === s.id}
             onVisible={() => setActiveId(s.id)}
             signedIn={!!user}
+            registerRef={registerRef}
           />
         ))}
+        {loadingMore && (
+          <div className="h-20 flex items-center justify-center text-white/60 text-sm">Loading more…</div>
+        )}
+        {!hasMore && (
+          <div className="h-20 flex items-center justify-center text-white/40 text-xs uppercase tracking-wider">You're all caught up</div>
+        )}
       </div>
 
       <div className="md:hidden absolute bottom-2 left-1/2 -translate-x-1/2 text-[10px] text-white/60 z-40 flex items-center gap-1 pointer-events-none">
@@ -114,27 +203,26 @@ function ShortsPage() {
 }
 
 function ShortItem({
-  short, muted, isActive, onVisible, signedIn,
-}: { short: Short; muted: boolean; isActive: boolean; onVisible: () => void; signedIn: boolean }) {
+  short, muted, isActive, onVisible, signedIn, registerRef,
+}: { short: Short; muted: boolean; isActive: boolean; onVisible: () => void; signedIn: boolean; registerRef: (id: string, el: HTMLDivElement | null) => void }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     const el = wrapRef.current;
     if (!el) return;
+    registerRef(short.id, el);
     const io = new IntersectionObserver(
       (entries) => {
         for (const e of entries) {
-          if (e.isIntersecting && e.intersectionRatio >= 0.6) {
-            onVisible();
-          }
+          if (e.isIntersecting && e.intersectionRatio >= 0.6) onVisible();
         }
       },
       { threshold: [0, 0.6, 1] }
     );
     io.observe(el);
-    return () => io.disconnect();
-  }, [onVisible]);
+    return () => { io.disconnect(); registerRef(short.id, null); };
+  }, [onVisible, registerRef, short.id]);
 
   useEffect(() => {
     const v = videoRef.current;
@@ -169,7 +257,6 @@ function ShortItem({
           className="w-full h-full object-cover"
         />
 
-        {/* Bottom gradient + meta */}
         <div className="absolute inset-x-0 bottom-0 p-5 pr-20 bg-gradient-to-t from-black/85 via-black/40 to-transparent text-white">
           {short.profiles && (
             <Link to="/$username" params={{ username: short.profiles.username }} className="flex items-center gap-2 mb-3">
@@ -189,7 +276,6 @@ function ShortItem({
           {short.description && <p className="text-sm text-white/75 mt-1 line-clamp-2">{short.description}</p>}
         </div>
 
-        {/* Right rail actions (inside player) */}
         <div className="absolute right-3 bottom-28 z-30 flex flex-col gap-4 items-center text-white">
           <ActionBtn icon={<Flame className="w-6 h-6 text-brand-orange" />} count={null} onClick={() => toast.success("Streak +1 today")} />
           <ActionBtn icon={<Heart className="w-6 h-6" />} count={short.like_count} onClick={() => like(short.id, signedIn)} />
