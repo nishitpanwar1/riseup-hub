@@ -24,12 +24,13 @@ function AuthPage() {
   const nav = useNavigate();
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormVals>({
     resolver: zodResolver(schema),
+    defaultValues: { email: "", password: "", displayName: "" },
   });
 
   const onSubmit = async (vals: FormVals) => {
     try {
       if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email: vals.email,
           password: vals.password,
           options: {
@@ -38,16 +39,21 @@ function AuthPage() {
           },
         });
         if (error) throw error;
+        if (!data.session) {
+          toast.success("Account created. Check your email to verify, then sign in.");
+          return;
+        }
         toast.success("Account created. Welcome to the arena.");
       } else {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabase.auth.signInWithPassword({
           email: vals.email,
           password: vals.password,
         });
         if (error) throw error;
+        if (!data.session) throw new Error("Sign-in needs email verification first.");
         toast.success("Welcome back.");
       }
-      nav({ to: "/feed" });
+      nav({ to: "/feed", replace: true });
     } catch (e: any) {
       toast.error(e.message ?? "Auth failed");
     }
@@ -80,7 +86,7 @@ function AuthPage() {
           <div className="flex-1 h-px bg-[#4A2D7A]" /> OR <div className="flex-1 h-px bg-[#4A2D7A]" />
         </div>
 
-        <form method="post" action="#" onSubmit={(e) => { e.preventDefault(); e.stopPropagation(); void handleSubmit(onSubmit)(e); }} className="space-y-3">
+        <form noValidate onSubmit={handleSubmit(onSubmit)} className="space-y-3">
           {mode === "signup" && (
             <Field label="Display name" error={errors.displayName?.message}>
               <input {...register("displayName")} placeholder="Your name" className="w-full px-3 py-2.5" />
