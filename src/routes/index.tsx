@@ -1,12 +1,20 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useEffect } from "react";
 import { Flame, Zap, Target, Users, ShieldCheck, TrendingUp } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
+import { useAuth } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/")({
   component: LandingPage,
 });
 
 function LandingPage() {
+  const { user, loading } = useAuth();
+  const nav = useNavigate();
+  useEffect(() => {
+    if (!loading && user) nav({ to: "/feed", replace: true });
+  }, [loading, user, nav]);
+  if (loading || user) return <div className="min-h-screen bg-bg-primary" />;
   return (
     <div className="min-h-screen bg-bg-primary text-text-primary">
       <AppHeader />
