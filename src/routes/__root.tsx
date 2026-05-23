@@ -88,15 +88,13 @@ function RootShell({ children }: { children: React.ReactNode }) {
 }
 
 function AuthSync() {
-  const router = useRouter();
   const qc = useQueryClient();
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
-      router.invalidate();
       qc.invalidateQueries();
     });
     return () => subscription.unsubscribe();
-  }, [router, qc]);
+  }, [qc]);
   return null;
 }
 
