@@ -32,7 +32,7 @@ function WatchPage() {
   // record a view (best-effort)
   useEffect(() => {
     if (!video) return;
-    supabase.from("video_views").insert({ video_id: video.id, user_id: user?.id ?? null }).then(() => {});
+    supabase.from("video_views").insert({ video_id: video.id, user_id: user?.id ?? null, seconds_watched: 0, total_seconds: video.duration ?? 0 }).then(() => {});
   }, [video?.id, user?.id]);
 
   if (isLoading) return <Center>Loading…</Center>;
