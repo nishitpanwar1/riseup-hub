@@ -22,18 +22,29 @@ const schema = z.object({
   title: z.string().min(3, "Min 3 chars").max(100),
   description: z.string().max(500).optional(),
   category: z.enum(CATS),
-  thumbnail_url: z.string().url().optional().or(z.literal("")),
   tags: z.string().optional(),
 });
 type Vals = z.infer<typeof schema>;
 
 type Probe = { duration: number; width: number; height: number };
 
+// Allowed aspect ratios. 16:9 → main feed, everything else → shorts feed.
+const RATIOS: { label: string; value: number; short: boolean }[] = [
+  { label: "9:16",  value: 9/16,  short: true  },
+  { label: "3:4",   value: 3/4,   short: true  },
+  { label: "4:5",   value: 4/5,   short: true  },
+  { label: "1:1",   value: 1,     short: true  },
+  { label: "16:9",  value: 16/9,  short: false },
+];
+
 function UploadPage() {
   const nav = useNavigate();
   const [file, setFile] = useState<File | null>(null);
   const [probe, setProbe] = useState<Probe | null>(null);
-  const [aspect, setAspect] = useState<"9:16" | "16:9" | null>(null);
+  const [aspect, setAspect] = useState<string | null>(null);
+  const [isShort, setIsShort] = useState<boolean>(true);
+  const [thumbFile, setThumbFile] = useState<File | null>(null);
+  const [thumbPreview, setThumbPreview] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<Vals>({
     resolver: zodResolver(schema),
