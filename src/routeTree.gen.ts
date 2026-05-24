@@ -15,6 +15,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as UsernameRouteImport } from './routes/$username'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as RoomsIndexRouteImport } from './routes/rooms.index'
+import { Route as WatchIdRouteImport } from './routes/watch.$id'
 import { Route as StudioUploadRouteImport } from './routes/studio.upload'
 import { Route as RoomsIdRouteImport } from './routes/rooms.$id'
 
@@ -48,6 +49,11 @@ const RoomsIndexRoute = RoomsIndexRouteImport.update({
   path: '/rooms/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const WatchIdRoute = WatchIdRouteImport.update({
+  id: '/watch/$id',
+  path: '/watch/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const StudioUploadRoute = StudioUploadRouteImport.update({
   id: '/studio/upload',
   path: '/studio/upload',
@@ -67,6 +73,7 @@ export interface FileRoutesByFullPath {
   '/shorts': typeof ShortsRoute
   '/rooms/$id': typeof RoomsIdRoute
   '/studio/upload': typeof StudioUploadRoute
+  '/watch/$id': typeof WatchIdRoute
   '/rooms/': typeof RoomsIndexRoute
 }
 export interface FileRoutesByTo {
@@ -77,6 +84,7 @@ export interface FileRoutesByTo {
   '/shorts': typeof ShortsRoute
   '/rooms/$id': typeof RoomsIdRoute
   '/studio/upload': typeof StudioUploadRoute
+  '/watch/$id': typeof WatchIdRoute
   '/rooms': typeof RoomsIndexRoute
 }
 export interface FileRoutesById {
@@ -88,6 +96,7 @@ export interface FileRoutesById {
   '/shorts': typeof ShortsRoute
   '/rooms/$id': typeof RoomsIdRoute
   '/studio/upload': typeof StudioUploadRoute
+  '/watch/$id': typeof WatchIdRoute
   '/rooms/': typeof RoomsIndexRoute
 }
 export interface FileRouteTypes {
@@ -100,6 +109,7 @@ export interface FileRouteTypes {
     | '/shorts'
     | '/rooms/$id'
     | '/studio/upload'
+    | '/watch/$id'
     | '/rooms/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -110,6 +120,7 @@ export interface FileRouteTypes {
     | '/shorts'
     | '/rooms/$id'
     | '/studio/upload'
+    | '/watch/$id'
     | '/rooms'
   id:
     | '__root__'
@@ -120,6 +131,7 @@ export interface FileRouteTypes {
     | '/shorts'
     | '/rooms/$id'
     | '/studio/upload'
+    | '/watch/$id'
     | '/rooms/'
   fileRoutesById: FileRoutesById
 }
@@ -131,6 +143,7 @@ export interface RootRouteChildren {
   ShortsRoute: typeof ShortsRoute
   RoomsIdRoute: typeof RoomsIdRoute
   StudioUploadRoute: typeof StudioUploadRoute
+  WatchIdRoute: typeof WatchIdRoute
   RoomsIndexRoute: typeof RoomsIndexRoute
 }
 
@@ -178,6 +191,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RoomsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/watch/$id': {
+      id: '/watch/$id'
+      path: '/watch/$id'
+      fullPath: '/watch/$id'
+      preLoaderRoute: typeof WatchIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/studio/upload': {
       id: '/studio/upload'
       path: '/studio/upload'
@@ -203,8 +223,19 @@ const rootRouteChildren: RootRouteChildren = {
   ShortsRoute: ShortsRoute,
   RoomsIdRoute: RoomsIdRoute,
   StudioUploadRoute: StudioUploadRoute,
+  WatchIdRoute: WatchIdRoute,
   RoomsIndexRoute: RoomsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
