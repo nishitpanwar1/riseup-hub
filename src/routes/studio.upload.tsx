@@ -22,18 +22,29 @@ const schema = z.object({
   title: z.string().min(3, "Min 3 chars").max(100),
   description: z.string().max(500).optional(),
   category: z.enum(CATS),
-  thumbnail_url: z.string().url().optional().or(z.literal("")),
   tags: z.string().optional(),
 });
 type Vals = z.infer<typeof schema>;
 
 type Probe = { duration: number; width: number; height: number };
 
+// Allowed aspect ratios. 16:9 → main feed, everything else → shorts feed.
+const RATIOS: { label: string; value: number; short: boolean }[] = [
+  { label: "9:16",  value: 9/16,  short: true  },
+  { label: "3:4",   value: 3/4,   short: true  },
+  { label: "4:5",   value: 4/5,   short: true  },
+  { label: "1:1",   value: 1,     short: true  },
+  { label: "16:9",  value: 16/9,  short: false },
+];
+
 function UploadPage() {
   const nav = useNavigate();
   const [file, setFile] = useState<File | null>(null);
   const [probe, setProbe] = useState<Probe | null>(null);
-  const [aspect, setAspect] = useState<"9:16" | "16:9" | null>(null);
+  const [aspect, setAspect] = useState<string | null>(null);
+  const [isShort, setIsShort] = useState<boolean>(true);
+  const [thumbFile, setThumbFile] = useState<File | null>(null);
+  const [thumbPreview, setThumbPreview] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<Vals>({
     resolver: zodResolver(schema),
@@ -47,13 +58,14 @@ function UploadPage() {
     try {
       const p = await probeVideo(f);
       const ratio = p.width / p.height;
-      // 9:16 ≈ 0.5625, 16:9 ≈ 1.7778; allow ±8% tolerance
-      if (Math.abs(ratio - 9/16) / (9/16) < 0.08) setAspect("9:16");
-      else if (Math.abs(ratio - 16/9) / (16/9) < 0.08) setAspect("16:9");
-      else {
-        toast.error(`Only 9:16 or 16:9 allowed (yours: ${p.width}×${p.height})`);
+      // Match closest allowed ratio within ±8%
+      const match = RATIOS.find(r => Math.abs(ratio - r.value) / r.value < 0.08);
+      if (!match) {
+        toast.error(`Allowed ratios: 9:16, 3:4, 4:5, 1:1, 16:9 (yours: ${p.width}×${p.height})`);
         setFile(null); return;
       }
+      setAspect(match.label);
+      setIsShort(match.short);
       setProbe(p);
     } catch {
       toast.error("Could not read video metadata");
@@ -61,8 +73,14 @@ function UploadPage() {
     }
   };
 
+  const handleThumb = (f: File | null) => {
+    if (thumbPreview) URL.revokeObjectURL(thumbPreview);
+    setThumbFile(f);
+    setThumbPreview(f ? URL.createObjectURL(f) : null);
+  };
+
   const onSubmit = async (vals: Vals) => {
-    if (!file || !probe || !aspect) return toast.error("Pick a valid 9:16 or 16:9 video");
+    if (!file || !probe || !aspect) return toast.error("Pick a valid video first");
     const { data: u } = await supabase.auth.getUser();
     if (!u.user) return toast.error("Sign in first");
 
@@ -73,14 +91,22 @@ function UploadPage() {
       const { error: upErr } = await supabase.storage.from("videos")
         .upload(path, file, { upsert: false, contentType: file.type || "video/mp4" });
       if (upErr) throw upErr;
-      setProgress(75);
+      setProgress(60);
 
       const { data: pub } = supabase.storage.from("videos").getPublicUrl(path);
       const videoUrl = pub.publicUrl;
 
-      const thumb = vals.thumbnail_url && vals.thumbnail_url.length > 0
-        ? vals.thumbnail_url
-        : `https://placehold.co/${aspect === "9:16" ? "405x720" : "720x405"}/2D1155/FF6B2F.png?text=${encodeURIComponent(vals.title)}`;
+      let thumb = `https://placehold.co/${isShort ? "405x720" : "720x405"}/2D1155/FF6B2F.png?text=${encodeURIComponent(vals.title)}`;
+      if (thumbFile) {
+        const tExt = (thumbFile.name.split(".").pop() || "jpg").toLowerCase();
+        const tPath = `${u.user.id}/${Date.now()}.${tExt}`;
+        const { error: tErr } = await supabase.storage.from("thumbnails")
+          .upload(tPath, thumbFile, { upsert: false, contentType: thumbFile.type || "image/jpeg" });
+        if (tErr) throw tErr;
+        const { data: tPub } = supabase.storage.from("thumbnails").getPublicUrl(tPath);
+        thumb = tPub.publicUrl;
+      }
+      setProgress(85);
 
       const tags = vals.tags?.split(",").map(t => t.trim()).filter(Boolean).slice(0, 5) ?? [];
 
@@ -92,7 +118,7 @@ function UploadPage() {
         video_url: videoUrl,
         thumbnail_url: thumb,
         duration: Math.round(probe.duration),
-        is_short: aspect === "9:16",
+        is_short: isShort,
         tags,
         status: "active",
       });
@@ -112,7 +138,7 @@ function UploadPage() {
       <AppHeader />
       <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
         <h1 className="text-3xl font-black uppercase mb-1">Studio · upload</h1>
-        <p className="text-text-secondary mb-6">Native HTML5 streaming · max 200 MB · only 9:16 or 16:9</p>
+        <p className="text-text-secondary mb-6">Native HTML5 streaming · max 200 MB · 9:16 · 3:4 · 4:5 · 1:1 · 16:9</p>
 
         <form
           method="post"
@@ -145,8 +171,18 @@ function UploadPage() {
               {CATS.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
           </Field>
-          <Field label="Thumbnail URL (optional)" error={errors.thumbnail_url?.message}>
-            <input {...register("thumbnail_url")} placeholder="https://… (leave blank for auto)" className="w-full px-3 py-2.5" />
+          <Field label="Thumbnail (optional image)">
+            <div className="border-2 border-dashed border-rise rounded-xl p-4 text-center bg-bg-surface hover:border-brand-purple cursor-pointer relative flex items-center gap-4">
+              <input type="file" accept="image/*" onChange={e => handleThumb(e.target.files?.[0] ?? null)} className="absolute inset-0 opacity-0 cursor-pointer" />
+              {thumbPreview ? (
+                <img src={thumbPreview} alt="Thumbnail preview" className="w-20 h-20 object-cover rounded-md" />
+              ) : (
+                <div className="w-20 h-20 rounded-md bg-bg-primary flex items-center justify-center text-text-tertiary text-xs">No image</div>
+              )}
+              <p className="text-sm text-text-secondary flex-1 text-left">
+                {thumbFile ? thumbFile.name : "Click to upload a cover image (auto-generated if blank)"}
+              </p>
+            </div>
           </Field>
           <Field label="Tags (comma separated, max 5)">
             <input {...register("tags")} placeholder="cold, discipline, morning" className="w-full px-3 py-2.5" />
