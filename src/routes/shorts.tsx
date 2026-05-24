@@ -173,8 +173,8 @@ function ShortsPage() {
 
       <div
         ref={scrollerRef}
-        className="h-full w-full overflow-y-scroll snap-y snap-mandatory scroll-smooth"
-        style={{ scrollSnapType: "y mandatory" }}
+        className="h-full w-full overflow-y-scroll snap-y snap-mandatory"
+        style={{ scrollSnapType: "y mandatory", overscrollBehavior: "contain" }}
       >
         {items.map((s, i) => {
           const activeIdx = items.findIndex(x => x.id === activeId);
