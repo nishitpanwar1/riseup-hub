@@ -286,6 +286,8 @@ function ShortItem({
             <div className="h-full bg-brand-orange transition-all" style={{ width: `${progress}%` }} />
           </div>
         )}
+
+        <div className="absolute inset-x-0 bottom-0 p-5 pr-20 bg-gradient-to-t from-black/85 via-black/40 to-transparent text-white">
           {short.profiles && (
             <Link to="/$username" params={{ username: short.profiles.username }} className="flex items-center gap-2 mb-3">
               <div className="w-10 h-10 rounded-full bg-bg-surface border-2 border-brand-purple flex items-center justify-center font-bold">
