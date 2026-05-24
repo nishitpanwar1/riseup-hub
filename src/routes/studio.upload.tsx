@@ -58,13 +58,14 @@ function UploadPage() {
     try {
       const p = await probeVideo(f);
       const ratio = p.width / p.height;
-      // 9:16 ≈ 0.5625, 16:9 ≈ 1.7778; allow ±8% tolerance
-      if (Math.abs(ratio - 9/16) / (9/16) < 0.08) setAspect("9:16");
-      else if (Math.abs(ratio - 16/9) / (16/9) < 0.08) setAspect("16:9");
-      else {
-        toast.error(`Only 9:16 or 16:9 allowed (yours: ${p.width}×${p.height})`);
+      // Match closest allowed ratio within ±8%
+      const match = RATIOS.find(r => Math.abs(ratio - r.value) / r.value < 0.08);
+      if (!match) {
+        toast.error(`Allowed ratios: 9:16, 3:4, 4:5, 1:1, 16:9 (yours: ${p.width}×${p.height})`);
         setFile(null); return;
       }
+      setAspect(match.label);
+      setIsShort(match.short);
       setProbe(p);
     } catch {
       toast.error("Could not read video metadata");
@@ -72,8 +73,14 @@ function UploadPage() {
     }
   };
 
+  const handleThumb = (f: File | null) => {
+    if (thumbPreview) URL.revokeObjectURL(thumbPreview);
+    setThumbFile(f);
+    setThumbPreview(f ? URL.createObjectURL(f) : null);
+  };
+
   const onSubmit = async (vals: Vals) => {
-    if (!file || !probe || !aspect) return toast.error("Pick a valid 9:16 or 16:9 video");
+    if (!file || !probe || !aspect) return toast.error("Pick a valid video first");
     const { data: u } = await supabase.auth.getUser();
     if (!u.user) return toast.error("Sign in first");
 
@@ -84,14 +91,22 @@ function UploadPage() {
       const { error: upErr } = await supabase.storage.from("videos")
         .upload(path, file, { upsert: false, contentType: file.type || "video/mp4" });
       if (upErr) throw upErr;
-      setProgress(75);
+      setProgress(60);
 
       const { data: pub } = supabase.storage.from("videos").getPublicUrl(path);
       const videoUrl = pub.publicUrl;
 
-      const thumb = vals.thumbnail_url && vals.thumbnail_url.length > 0
-        ? vals.thumbnail_url
-        : `https://placehold.co/${aspect === "9:16" ? "405x720" : "720x405"}/2D1155/FF6B2F.png?text=${encodeURIComponent(vals.title)}`;
+      let thumb = `https://placehold.co/${isShort ? "405x720" : "720x405"}/2D1155/FF6B2F.png?text=${encodeURIComponent(vals.title)}`;
+      if (thumbFile) {
+        const tExt = (thumbFile.name.split(".").pop() || "jpg").toLowerCase();
+        const tPath = `${u.user.id}/${Date.now()}.${tExt}`;
+        const { error: tErr } = await supabase.storage.from("thumbnails")
+          .upload(tPath, thumbFile, { upsert: false, contentType: thumbFile.type || "image/jpeg" });
+        if (tErr) throw tErr;
+        const { data: tPub } = supabase.storage.from("thumbnails").getPublicUrl(tPath);
+        thumb = tPub.publicUrl;
+      }
+      setProgress(85);
 
       const tags = vals.tags?.split(",").map(t => t.trim()).filter(Boolean).slice(0, 5) ?? [];
 
@@ -103,7 +118,7 @@ function UploadPage() {
         video_url: videoUrl,
         thumbnail_url: thumb,
         duration: Math.round(probe.duration),
-        is_short: aspect === "9:16",
+        is_short: isShort,
         tags,
         status: "active",
       });
