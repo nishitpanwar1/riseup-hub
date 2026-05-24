@@ -176,17 +176,22 @@ function ShortsPage() {
         className="h-full w-full overflow-y-scroll snap-y snap-mandatory scroll-smooth"
         style={{ scrollSnapType: "y mandatory" }}
       >
-        {items.map((s) => (
-          <ShortItem
-            key={s.id}
-            short={s}
-            muted={muted}
-            isActive={activeId === s.id}
-            onVisible={() => setActiveId(s.id)}
-            signedIn={!!user}
-            registerRef={registerRef}
-          />
-        ))}
+        {items.map((s, i) => {
+          const activeIdx = items.findIndex(x => x.id === activeId);
+          const near = activeIdx === -1 ? i < 2 : Math.abs(i - activeIdx) <= 1;
+          return (
+            <ShortItem
+              key={s.id}
+              short={s}
+              muted={muted}
+              isActive={activeId === s.id}
+              shouldMount={near}
+              onVisible={() => setActiveId(s.id)}
+              signedIn={!!user}
+              registerRef={registerRef}
+            />
+          );
+        })}
         {loadingMore && (
           <div className="h-20 flex items-center justify-center text-white/60 text-sm">Loading more…</div>
         )}
