@@ -240,7 +240,7 @@ function ShortItem({
       ref={wrapRef}
       className="relative w-full h-[100dvh] snap-start snap-always flex items-center justify-center bg-black"
     >
-      <div className="relative h-full md:h-[95%] aspect-[9/16] max-w-full bg-black overflow-hidden md:rounded-2xl md:shadow-[0_0_60px_rgba(123,47,255,0.25)]">
+      <div className="relative h-full md:h-[95%] aspect-[9/16] max-w-full bg-black overflow-hidden md:rounded-2xl md:shadow-[0_0_60px_rgba(123,47,255,0.25)] flex items-center justify-center">
         <video
           ref={videoRef}
           src={short.video_url}
@@ -254,7 +254,7 @@ function ShortItem({
             if (!v) return;
             v.paused ? v.play() : v.pause();
           }}
-          className="w-full h-full object-cover"
+          className="max-w-full max-h-full w-auto h-auto object-contain"
         />
 
         <div className="absolute inset-x-0 bottom-0 p-5 pr-20 bg-gradient-to-t from-black/85 via-black/40 to-transparent text-white">
