@@ -335,6 +335,14 @@ async function save(videoId: string, signedIn: boolean) {
   toast.success("Saved to your playlist");
 }
 
+async function shareShort(title: string) {
+  const url = window.location.href;
+  if (typeof navigator !== "undefined" && (navigator as any).share) {
+    try { await (navigator as any).share({ title, url }); return; } catch (_e) { /* user cancelled */ }
+  }
+  try { await navigator.clipboard?.writeText(url); toast.success("Link copied"); } catch (_e) { toast.error("Could not share"); }
+}
+
 function ActionBtn({ icon, count, onClick }: { icon: React.ReactNode; count: number | null; onClick: () => void }) {
   return (
     <button onClick={onClick} className="flex flex-col items-center gap-1">
