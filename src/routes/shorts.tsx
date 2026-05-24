@@ -173,19 +173,20 @@ function ShortsPage() {
 
       <div
         ref={scrollerRef}
-        className="h-full w-full overflow-y-scroll snap-y snap-mandatory scroll-smooth"
-        style={{ scrollSnapType: "y mandatory" }}
+        className="h-full w-full overflow-y-scroll snap-y snap-mandatory"
+        style={{ scrollSnapType: "y mandatory", overscrollBehavior: "contain" }}
       >
         {items.map((s, i) => {
           const activeIdx = items.findIndex(x => x.id === activeId);
-          const near = activeIdx === -1 ? i < 2 : Math.abs(i - activeIdx) <= 1;
+          // Only mount the active video element; neighbors show poster img only.
+          const mount = activeIdx === -1 ? i === 0 : i === activeIdx;
           return (
             <ShortItem
               key={s.id}
               short={s}
               muted={muted}
               isActive={activeId === s.id}
-              shouldMount={near}
+              shouldMount={mount}
               onVisible={() => setActiveId(s.id)}
               signedIn={!!user}
               registerRef={registerRef}
@@ -212,7 +213,7 @@ function ShortItem({
 }: { short: Short; muted: boolean; isActive: boolean; shouldMount: boolean; onVisible: () => void; signedIn: boolean; registerRef: (id: string, el: HTMLDivElement | null) => void }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [progress, setProgress] = useState(0);
+  const progressRef = useRef<HTMLDivElement>(null);
   const lastTapRef = useRef(0);
 
   useEffect(() => {
@@ -269,11 +270,12 @@ function ShortItem({
             loop
             muted={muted}
             playsInline
-            preload={isActive ? "auto" : "metadata"}
+            preload={isActive ? "auto" : "none"}
             onClick={handleTap}
             onTimeUpdate={(e) => {
               const v = e.currentTarget;
-              if (v.duration) setProgress((v.currentTime / v.duration) * 100);
+              const bar = progressRef.current;
+              if (bar && v.duration) bar.style.width = `${(v.currentTime / v.duration) * 100}%`;
             }}
             className="max-w-full max-h-full w-auto h-auto object-contain"
           />
@@ -283,7 +285,7 @@ function ShortItem({
 
         {isActive && (
           <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/10 z-30">
-            <div className="h-full bg-brand-orange transition-all" style={{ width: `${progress}%` }} />
+            <div ref={progressRef} className="h-full bg-brand-orange" style={{ width: "0%" }} />
           </div>
         )}
 
