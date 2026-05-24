@@ -270,11 +270,12 @@ function ShortItem({
             loop
             muted={muted}
             playsInline
-            preload={isActive ? "auto" : "metadata"}
+            preload={isActive ? "auto" : "none"}
             onClick={handleTap}
             onTimeUpdate={(e) => {
               const v = e.currentTarget;
-              if (v.duration) setProgress((v.currentTime / v.duration) * 100);
+              const bar = progressRef.current;
+              if (bar && v.duration) bar.style.width = `${(v.currentTime / v.duration) * 100}%`;
             }}
             className="max-w-full max-h-full w-auto h-auto object-contain"
           />
@@ -284,7 +285,7 @@ function ShortItem({
 
         {isActive && (
           <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/10 z-30">
-            <div className="h-full bg-brand-orange transition-all" style={{ width: `${progress}%` }} />
+            <div ref={progressRef} className="h-full bg-brand-orange" style={{ width: "0%" }} />
           </div>
         )}
 
