@@ -184,9 +184,9 @@ function FeedPage() {
 
 function VideoCard({ video }: { video: any }) {
   return (
-    <div className="card-rise overflow-hidden group">
+    <Link to="/watch/$id" params={{ id: video.id }} className="card-rise overflow-hidden group block">
       <div className="relative aspect-video bg-black">
-        <video src={video.video_url} poster={video.thumbnail_url} muted loop playsInline
+        <video src={video.video_url} poster={video.thumbnail_url} muted loop playsInline preload="none"
           onMouseEnter={(e) => e.currentTarget.play().catch(()=>{})}
           onMouseLeave={(e) => { e.currentTarget.pause(); e.currentTarget.currentTime = 0; }}
           className="w-full h-full object-cover" />
@@ -198,15 +198,15 @@ function VideoCard({ video }: { video: any }) {
       <div className="p-4">
         <h3 className="font-bold leading-tight line-clamp-2">{video.title}</h3>
         {video.profiles && (
-          <Link to="/$username" params={{ username: video.profiles.username }} className="text-xs text-text-secondary mt-1 block hover:text-text-primary">
+          <span className="text-xs text-text-secondary mt-1 block">
             @{video.profiles.username}
-          </Link>
+          </span>
         )}
         <div className="flex gap-3 mt-2 text-xs text-text-tertiary font-stat">
           <span>{video.view_count} views</span>
           <span>{video.like_count} likes</span>
         </div>
       </div>
-    </div>
+    </Link>
   );
 }
