@@ -208,10 +208,12 @@ function ShortsPage() {
 }
 
 function ShortItem({
-  short, muted, isActive, onVisible, signedIn, registerRef,
-}: { short: Short; muted: boolean; isActive: boolean; onVisible: () => void; signedIn: boolean; registerRef: (id: string, el: HTMLDivElement | null) => void }) {
+  short, muted, isActive, shouldMount, onVisible, signedIn, registerRef,
+}: { short: Short; muted: boolean; isActive: boolean; shouldMount: boolean; onVisible: () => void; signedIn: boolean; registerRef: (id: string, el: HTMLDivElement | null) => void }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [progress, setProgress] = useState(0);
+  const lastTapRef = useRef(0);
 
   useEffect(() => {
     const el = wrapRef.current;
@@ -238,7 +240,20 @@ function ShortItem({
     } else {
       v.pause();
     }
-  }, [isActive]);
+  }, [isActive, shouldMount]);
+
+  const handleTap = () => {
+    const v = videoRef.current;
+    const now = Date.now();
+    if (now - lastTapRef.current < 300) {
+      like(short.id, signedIn);
+      lastTapRef.current = 0;
+      return;
+    }
+    lastTapRef.current = now;
+    if (!v) return;
+    v.paused ? v.play() : v.pause();
+  };
 
   return (
     <div
@@ -246,23 +261,31 @@ function ShortItem({
       className="relative w-full h-[100dvh] snap-start snap-always flex items-center justify-center bg-black"
     >
       <div className="relative h-full md:h-[95%] aspect-[9/16] max-w-full bg-black overflow-hidden md:rounded-2xl md:shadow-[0_0_60px_rgba(123,47,255,0.25)] flex items-center justify-center">
-        <video
-          ref={videoRef}
-          src={short.video_url}
-          poster={short.thumbnail_url}
-          loop
-          muted={muted}
-          playsInline
-          preload="metadata"
-          onClick={() => {
-            const v = videoRef.current;
-            if (!v) return;
-            v.paused ? v.play() : v.pause();
-          }}
-          className="max-w-full max-h-full w-auto h-auto object-contain"
-        />
+        {shouldMount ? (
+          <video
+            ref={videoRef}
+            src={short.video_url}
+            poster={short.thumbnail_url}
+            loop
+            muted={muted}
+            playsInline
+            preload={isActive ? "auto" : "metadata"}
+            onClick={handleTap}
+            onTimeUpdate={(e) => {
+              const v = e.currentTarget;
+              if (v.duration) setProgress((v.currentTime / v.duration) * 100);
+            }}
+            className="max-w-full max-h-full w-auto h-auto object-contain"
+          />
+        ) : (
+          <img src={short.thumbnail_url} alt="" className="max-w-full max-h-full w-auto h-auto object-contain opacity-70" loading="lazy" />
+        )}
 
-        <div className="absolute inset-x-0 bottom-0 p-5 pr-20 bg-gradient-to-t from-black/85 via-black/40 to-transparent text-white">
+        {isActive && (
+          <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/10 z-30">
+            <div className="h-full bg-brand-orange transition-all" style={{ width: `${progress}%` }} />
+          </div>
+        )}
           {short.profiles && (
             <Link to="/$username" params={{ username: short.profiles.username }} className="flex items-center gap-2 mb-3">
               <div className="w-10 h-10 rounded-full bg-bg-surface border-2 border-brand-purple flex items-center justify-center font-bold">
