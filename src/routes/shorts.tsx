@@ -311,11 +311,7 @@ function ShortItem({
           <ActionBtn icon={<Heart className="w-6 h-6" />} count={short.like_count} onClick={() => like(short.id, signedIn)} />
           <ActionBtn icon={<Bookmark className="w-6 h-6" />} count={short.save_count} onClick={() => save(short.id, signedIn)} />
           <ActionBtn icon={<Users className="w-6 h-6 text-accent-mint" />} count={null} onClick={() => toast("Join the accountability room from the video page", { icon: "🛡️" })} />
-          <ActionBtn icon={<Share2 className="w-6 h-6" />} count={null} onClick={async () => {
-            const url = window.location.href;
-            if (navigator.share) { try { await navigator.share({ title: short.title, url }); return; } catch {} }
-            navigator.clipboard?.writeText(url); toast.success("Link copied");
-          }} />
+          <ActionBtn icon={<Share2 className="w-6 h-6" />} count={null} onClick={() => shareShort(short.title)} />
         </div>
       </div>
     </div>
