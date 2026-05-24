@@ -311,11 +311,7 @@ function ShortItem({
           <ActionBtn icon={<Heart className="w-6 h-6" />} count={short.like_count} onClick={() => like(short.id, signedIn)} />
           <ActionBtn icon={<Bookmark className="w-6 h-6" />} count={short.save_count} onClick={() => save(short.id, signedIn)} />
           <ActionBtn icon={<Users className="w-6 h-6 text-accent-mint" />} count={null} onClick={() => toast("Join the accountability room from the video page", { icon: "🛡️" })} />
-          <ActionBtn icon={<Share2 className="w-6 h-6" />} count={null} onClick={async () => {
-            const url = window.location.href;
-            if (navigator.share) { try { await navigator.share({ title: short.title, url }); return; } catch {} }
-            navigator.clipboard?.writeText(url); toast.success("Link copied");
-          }} />
+          <ActionBtn icon={<Share2 className="w-6 h-6" />} count={null} onClick={() => shareShort(short.title)} />
         </div>
       </div>
     </div>
@@ -337,6 +333,14 @@ async function save(videoId: string, signedIn: boolean) {
   const { error } = await supabase.from("video_saves").insert({ video_id: videoId, user_id: u.user.id });
   if (error) return toast.error(error.message);
   toast.success("Saved to your playlist");
+}
+
+async function shareShort(title: string) {
+  const url = window.location.href;
+  if (typeof navigator !== "undefined" && (navigator as any).share) {
+    try { await (navigator as any).share({ title, url }); return; } catch (_e) { /* user cancelled */ }
+  }
+  try { await navigator.clipboard?.writeText(url); toast.success("Link copied"); } catch (_e) { toast.error("Could not share"); }
 }
 
 function ActionBtn({ icon, count, onClick }: { icon: React.ReactNode; count: number | null; onClick: () => void }) {
