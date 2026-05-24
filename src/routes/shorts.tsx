@@ -178,14 +178,15 @@ function ShortsPage() {
       >
         {items.map((s, i) => {
           const activeIdx = items.findIndex(x => x.id === activeId);
-          const near = activeIdx === -1 ? i < 2 : Math.abs(i - activeIdx) <= 1;
+          // Only mount the active video element; neighbors show poster img only.
+          const mount = activeIdx === -1 ? i === 0 : i === activeIdx;
           return (
             <ShortItem
               key={s.id}
               short={s}
               muted={muted}
               isActive={activeId === s.id}
-              shouldMount={near}
+              shouldMount={mount}
               onVisible={() => setActiveId(s.id)}
               signedIn={!!user}
               registerRef={registerRef}
