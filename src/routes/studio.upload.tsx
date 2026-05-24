@@ -138,7 +138,7 @@ function UploadPage() {
       <AppHeader />
       <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
         <h1 className="text-3xl font-black uppercase mb-1">Studio · upload</h1>
-        <p className="text-text-secondary mb-6">Native HTML5 streaming · max 200 MB · only 9:16 or 16:9</p>
+        <p className="text-text-secondary mb-6">Native HTML5 streaming · max 200 MB · 9:16 · 3:4 · 4:5 · 1:1 · 16:9</p>
 
         <form
           method="post"
