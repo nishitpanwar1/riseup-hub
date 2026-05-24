@@ -171,8 +171,18 @@ function UploadPage() {
               {CATS.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
           </Field>
-          <Field label="Thumbnail URL (optional)" error={errors.thumbnail_url?.message}>
-            <input {...register("thumbnail_url")} placeholder="https://… (leave blank for auto)" className="w-full px-3 py-2.5" />
+          <Field label="Thumbnail (optional image)">
+            <div className="border-2 border-dashed border-rise rounded-xl p-4 text-center bg-bg-surface hover:border-brand-purple cursor-pointer relative flex items-center gap-4">
+              <input type="file" accept="image/*" onChange={e => handleThumb(e.target.files?.[0] ?? null)} className="absolute inset-0 opacity-0 cursor-pointer" />
+              {thumbPreview ? (
+                <img src={thumbPreview} alt="Thumbnail preview" className="w-20 h-20 object-cover rounded-md" />
+              ) : (
+                <div className="w-20 h-20 rounded-md bg-bg-primary flex items-center justify-center text-text-tertiary text-xs">No image</div>
+              )}
+              <p className="text-sm text-text-secondary flex-1 text-left">
+                {thumbFile ? thumbFile.name : "Click to upload a cover image (auto-generated if blank)"}
+              </p>
+            </div>
           </Field>
           <Field label="Tags (comma separated, max 5)">
             <input {...register("tags")} placeholder="cold, discipline, morning" className="w-full px-3 py-2.5" />
