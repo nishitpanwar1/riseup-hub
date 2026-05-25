@@ -32,7 +32,7 @@ export function AppHeader() {
   const signOut = async () => { await supabase.auth.signOut(); nav({ to: "/" }); };
 
   return (
-    <header className="sticky top-0 z-40 backdrop-blur bg-[#1A0533]/85 border-b border-rise">
+    <header className="sticky top-0 z-40 backdrop-blur bg-[#0a0a0a]/90 border-b border-rise">
       <div className="max-w-[1600px] mx-auto px-4 sm:px-6 h-16 flex items-center gap-4">
         <Link to="/" className="flex items-center gap-2 shrink-0">
           <Flame className="w-6 h-6 text-brand-orange" />
