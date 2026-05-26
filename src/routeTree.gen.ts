@@ -10,6 +10,9 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ShortsRouteImport } from './routes/shorts'
+import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as SearchRouteImport } from './routes/search'
+import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as FeedRouteImport } from './routes/feed'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as UsernameRouteImport } from './routes/$username'
@@ -22,6 +25,21 @@ import { Route as RoomsIdRouteImport } from './routes/rooms.$id'
 const ShortsRoute = ShortsRouteImport.update({
   id: '/shorts',
   path: '/shorts',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SearchRoute = SearchRouteImport.update({
+  id: '/search',
+  path: '/search',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NotificationsRoute = NotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FeedRoute = FeedRouteImport.update({
@@ -70,6 +88,9 @@ export interface FileRoutesByFullPath {
   '/$username': typeof UsernameRoute
   '/auth': typeof AuthRoute
   '/feed': typeof FeedRoute
+  '/notifications': typeof NotificationsRoute
+  '/search': typeof SearchRoute
+  '/settings': typeof SettingsRoute
   '/shorts': typeof ShortsRoute
   '/rooms/$id': typeof RoomsIdRoute
   '/studio/upload': typeof StudioUploadRoute
@@ -81,6 +102,9 @@ export interface FileRoutesByTo {
   '/$username': typeof UsernameRoute
   '/auth': typeof AuthRoute
   '/feed': typeof FeedRoute
+  '/notifications': typeof NotificationsRoute
+  '/search': typeof SearchRoute
+  '/settings': typeof SettingsRoute
   '/shorts': typeof ShortsRoute
   '/rooms/$id': typeof RoomsIdRoute
   '/studio/upload': typeof StudioUploadRoute
@@ -93,6 +117,9 @@ export interface FileRoutesById {
   '/$username': typeof UsernameRoute
   '/auth': typeof AuthRoute
   '/feed': typeof FeedRoute
+  '/notifications': typeof NotificationsRoute
+  '/search': typeof SearchRoute
+  '/settings': typeof SettingsRoute
   '/shorts': typeof ShortsRoute
   '/rooms/$id': typeof RoomsIdRoute
   '/studio/upload': typeof StudioUploadRoute
@@ -106,6 +133,9 @@ export interface FileRouteTypes {
     | '/$username'
     | '/auth'
     | '/feed'
+    | '/notifications'
+    | '/search'
+    | '/settings'
     | '/shorts'
     | '/rooms/$id'
     | '/studio/upload'
@@ -117,6 +147,9 @@ export interface FileRouteTypes {
     | '/$username'
     | '/auth'
     | '/feed'
+    | '/notifications'
+    | '/search'
+    | '/settings'
     | '/shorts'
     | '/rooms/$id'
     | '/studio/upload'
@@ -128,6 +161,9 @@ export interface FileRouteTypes {
     | '/$username'
     | '/auth'
     | '/feed'
+    | '/notifications'
+    | '/search'
+    | '/settings'
     | '/shorts'
     | '/rooms/$id'
     | '/studio/upload'
@@ -140,6 +176,9 @@ export interface RootRouteChildren {
   UsernameRoute: typeof UsernameRoute
   AuthRoute: typeof AuthRoute
   FeedRoute: typeof FeedRoute
+  NotificationsRoute: typeof NotificationsRoute
+  SearchRoute: typeof SearchRoute
+  SettingsRoute: typeof SettingsRoute
   ShortsRoute: typeof ShortsRoute
   RoomsIdRoute: typeof RoomsIdRoute
   StudioUploadRoute: typeof StudioUploadRoute
@@ -154,6 +193,27 @@ declare module '@tanstack/react-router' {
       path: '/shorts'
       fullPath: '/shorts'
       preLoaderRoute: typeof ShortsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/search': {
+      id: '/search'
+      path: '/search'
+      fullPath: '/search'
+      preLoaderRoute: typeof SearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/notifications': {
+      id: '/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof NotificationsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/feed': {
@@ -220,6 +280,9 @@ const rootRouteChildren: RootRouteChildren = {
   UsernameRoute: UsernameRoute,
   AuthRoute: AuthRoute,
   FeedRoute: FeedRoute,
+  NotificationsRoute: NotificationsRoute,
+  SearchRoute: SearchRoute,
+  SettingsRoute: SettingsRoute,
   ShortsRoute: ShortsRoute,
   RoomsIdRoute: RoomsIdRoute,
   StudioUploadRoute: StudioUploadRoute,
@@ -229,3 +292,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
