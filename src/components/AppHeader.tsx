@@ -1,5 +1,5 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { Flame, Upload, LogOut, User as UserIcon, Search } from "lucide-react";
+import { Flame, Upload, LogOut, User as UserIcon, Search, Bell, Settings } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
@@ -54,6 +54,12 @@ export function AppHeader() {
             <>
               <Link to="/studio/upload" className="btn-primary text-sm py-2 px-4 hidden sm:inline-flex items-center gap-2">
                 <Upload className="w-4 h-4" /> Create
+              </Link>
+              <Link to="/notifications" className="p-2 rounded-lg hover:bg-bg-card" title="Notifications">
+                <Bell className="w-5 h-5" />
+              </Link>
+              <Link to="/settings" className="p-2 rounded-lg hover:bg-bg-card hidden sm:inline-flex" title="Settings">
+                <Settings className="w-5 h-5" />
               </Link>
               {username ? (
                 <Link to="/$username" params={{ username }} className="w-9 h-9 rounded-full bg-brand-purple flex items-center justify-center font-bold text-sm">

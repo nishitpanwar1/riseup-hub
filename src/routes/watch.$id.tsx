@@ -1,11 +1,12 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Heart, Bookmark, Share2, ChevronLeft, Eye, Flame } from "lucide-react";
 import toast from "react-hot-toast";
 import { AppHeader } from "@/components/AppHeader";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { checkInStreak } from "@/lib/streak.functions";
 
 export const Route = createFileRoute("/watch/$id")({
   component: WatchPage,
@@ -35,10 +36,27 @@ function WatchPage() {
     supabase.from("video_views").insert({ video_id: video.id, user_id: user?.id ?? null, seconds_watched: 0, total_seconds: video.duration ?? 0 }).then(() => {});
   }, [video?.id, user?.id]);
 
+  const streakFiredRef = useRef(false);
+  const [completion, setCompletion] = useState(0);
+
   if (isLoading) return <Center>Loading…</Center>;
   if (!video) return <Center>Video not found</Center>;
 
   const profile: any = Array.isArray(video.profiles) ? video.profiles[0] : video.profiles;
+
+  const onTimeUpdate = async (e: React.SyntheticEvent<HTMLVideoElement>) => {
+    const v = e.currentTarget;
+    if (!v.duration) return;
+    const pct = v.currentTime / v.duration;
+    setCompletion(pct);
+    if (pct >= 0.8 && !streakFiredRef.current && user) {
+      streakFiredRef.current = true;
+      try {
+        const res = await checkInStreak();
+        if (res?.current_streak) toast.success(`🔥 ${res.current_streak}-day streak`, { duration: 2500 });
+      } catch (err: any) { console.warn("streak check-in failed:", err?.message); }
+    }
+  };
 
   const like = async () => {
     if (!user) return toast.error("Sign in to like");
@@ -72,8 +90,12 @@ function WatchPage() {
             controls
             autoPlay
             playsInline
+            onTimeUpdate={onTimeUpdate}
             className="w-full max-h-[78vh] object-contain bg-black"
           />
+          <div className="h-1 bg-bg-surface">
+            <div className="h-full bg-brand-orange transition-all" style={{ width: `${Math.round(completion*100)}%` }} />
+          </div>
         </div>
         <div className="mt-4 flex items-start justify-between gap-4 flex-wrap">
           <div className="min-w-0 flex-1">
