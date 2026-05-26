@@ -630,7 +630,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      check_in_streak: {
+        Args: never
+        Returns: {
+          current_streak: number
+          longest_streak: number
+          total_watch_days: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

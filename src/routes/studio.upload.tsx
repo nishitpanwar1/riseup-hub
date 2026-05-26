@@ -7,6 +7,7 @@ import toast from "react-hot-toast";
 import { Upload, Film } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { supabase } from "@/integrations/supabase/client";
+import { getStorjUploadUrl } from "@/lib/upload.functions";
 
 export const Route = createFileRoute("/studio/upload")({
   beforeLoad: async () => {
@@ -28,7 +29,6 @@ type Vals = z.infer<typeof schema>;
 
 type Probe = { duration: number; width: number; height: number };
 
-// Allowed aspect ratios. 16:9 → main feed, everything else → shorts feed.
 const RATIOS: { label: string; value: number; short: boolean }[] = [
   { label: "9:16",  value: 9/16,  short: true  },
   { label: "3:4",   value: 3/4,   short: true  },
@@ -54,11 +54,9 @@ function UploadPage() {
   const handleFile = async (f: File | null) => {
     setProbe(null); setAspect(null); setFile(f);
     if (!f) return;
-    if (f.size > 200 * 1024 * 1024) { toast.error("Max 200 MB on free tier"); setFile(null); return; }
     try {
       const p = await probeVideo(f);
       const ratio = p.width / p.height;
-      // Match closest allowed ratio within ±8%
       const match = RATIOS.find(r => Math.abs(ratio - r.value) / r.value < 0.08);
       if (!match) {
         toast.error(`Allowed ratios: 9:16, 3:4, 4:5, 1:1, 16:9 (yours: ${p.width}×${p.height})`);
@@ -85,18 +83,27 @@ function UploadPage() {
     if (!u.user) return toast.error("Sign in first");
 
     try {
-      const ext = (file.name.split(".").pop() || "mp4").toLowerCase();
-      const path = `${u.user.id}/${Date.now()}.${ext}`;
-      setProgress(15);
-      const { error: upErr } = await supabase.storage.from("videos")
-        .upload(path, file, { upsert: false, contentType: file.type || "video/mp4" });
-      if (upErr) throw upErr;
-      setProgress(60);
+      setProgress(5);
+      // 1. presigned URL from Storj via server fn
+      const { uploadUrl, playbackUrl } = await getStorjUploadUrl({
+        data: { filename: file.name, fileType: file.type || "video/mp4", folder: isShort ? "shorts" : "videos" },
+      });
 
-      const { data: pub } = supabase.storage.from("videos").getPublicUrl(path);
-      const videoUrl = pub.publicUrl;
+      // 2. direct PUT to Storj with XHR for progress
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("PUT", uploadUrl, true);
+        xhr.setRequestHeader("Content-Type", file.type || "video/mp4");
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) setProgress(5 + Math.round((e.loaded / e.total) * 75));
+        };
+        xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(`Upload failed: ${xhr.status} ${xhr.responseText}`)));
+        xhr.onerror = () => reject(new Error("Network error during upload"));
+        xhr.send(file);
+      });
 
-      let thumb = `https://placehold.co/${isShort ? "405x720" : "720x405"}/2D1155/FF6B2F.png?text=${encodeURIComponent(vals.title)}`;
+      // 3. thumbnail (optional) → supabase storage
+      let thumb = `https://placehold.co/${isShort ? "405x720" : "720x405"}/141414/FF6B35.png?text=${encodeURIComponent(vals.title)}`;
       if (thumbFile) {
         const tExt = (thumbFile.name.split(".").pop() || "jpg").toLowerCase();
         const tPath = `${u.user.id}/${Date.now()}.${tExt}`;
@@ -106,7 +113,7 @@ function UploadPage() {
         const { data: tPub } = supabase.storage.from("thumbnails").getPublicUrl(tPath);
         thumb = tPub.publicUrl;
       }
-      setProgress(85);
+      setProgress(90);
 
       const tags = vals.tags?.split(",").map(t => t.trim()).filter(Boolean).slice(0, 5) ?? [];
 
@@ -115,7 +122,7 @@ function UploadPage() {
         title: vals.title,
         description: vals.description ?? null,
         category: vals.category,
-        video_url: videoUrl,
+        video_url: playbackUrl,
         thumbnail_url: thumb,
         duration: Math.round(probe.duration),
         is_short: isShort,
@@ -125,7 +132,7 @@ function UploadPage() {
       if (insErr) throw insErr;
       setProgress(100);
       toast.success("Live in the feed");
-      nav({ to: "/feed" });
+      nav({ to: isShort ? "/shorts" : "/feed" });
     } catch (e: any) {
       console.error(e);
       toast.error(e.message ?? "Upload failed");
@@ -138,7 +145,7 @@ function UploadPage() {
       <AppHeader />
       <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
         <h1 className="text-3xl font-black uppercase mb-1">Studio · upload</h1>
-        <p className="text-text-secondary mb-6">Native HTML5 streaming · max 200 MB · 9:16 · 3:4 · 4:5 · 1:1 · 16:9</p>
+        <p className="text-text-secondary mb-6">Direct-to-Storj streaming · no size cap · 9:16 · 3:4 · 4:5 · 1:1 · 16:9</p>
 
         <form
           method="post"
@@ -151,7 +158,7 @@ function UploadPage() {
             <div className="mt-2 border-2 border-dashed border-rise rounded-xl p-8 text-center bg-bg-surface hover:border-brand-purple cursor-pointer relative">
               <input type="file" accept="video/*" onChange={e => handleFile(e.target.files?.[0] ?? null)} className="absolute inset-0 opacity-0 cursor-pointer" />
               <Film className="w-10 h-10 text-brand-orange mx-auto mb-2" />
-              <p className="font-bold">{file ? file.name : "Click or drop your MP4"}</p>
+              <p className="font-bold">{file ? file.name : "Click or drop your video"}</p>
               {file && probe && (
                 <p className="text-xs text-text-tertiary mt-1 font-stat">
                   {(file.size / 1024 / 1024).toFixed(1)} MB · {probe.width}×{probe.height} · {aspect} · {Math.round(probe.duration)}s
@@ -189,8 +196,11 @@ function UploadPage() {
           </Field>
 
           {progress > 0 && (
-            <div className="h-2 rounded-full bg-bg-surface overflow-hidden">
-              <div className="h-full bg-brand-orange transition-all" style={{ width: `${progress}%` }} />
+            <div>
+              <div className="h-2 rounded-full bg-bg-surface overflow-hidden">
+                <div className="h-full bg-brand-orange transition-all" style={{ width: `${progress}%` }} />
+              </div>
+              <p className="text-xs text-text-tertiary mt-1 font-stat">{progress}%</p>
             </div>
           )}
 
