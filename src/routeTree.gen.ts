@@ -21,6 +21,7 @@ import { Route as RoomsIndexRouteImport } from './routes/rooms.index'
 import { Route as WatchIdRouteImport } from './routes/watch.$id'
 import { Route as StudioUploadRouteImport } from './routes/studio.upload'
 import { Route as RoomsIdRouteImport } from './routes/rooms.$id'
+import { Route as ApiVideoRouteImport } from './routes/api/video'
 
 const ShortsRoute = ShortsRouteImport.update({
   id: '/shorts',
@@ -82,6 +83,11 @@ const RoomsIdRoute = RoomsIdRouteImport.update({
   path: '/rooms/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiVideoRoute = ApiVideoRouteImport.update({
+  id: '/api/video',
+  path: '/api/video',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -92,6 +98,7 @@ export interface FileRoutesByFullPath {
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/shorts': typeof ShortsRoute
+  '/api/video': typeof ApiVideoRoute
   '/rooms/$id': typeof RoomsIdRoute
   '/studio/upload': typeof StudioUploadRoute
   '/watch/$id': typeof WatchIdRoute
@@ -106,6 +113,7 @@ export interface FileRoutesByTo {
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/shorts': typeof ShortsRoute
+  '/api/video': typeof ApiVideoRoute
   '/rooms/$id': typeof RoomsIdRoute
   '/studio/upload': typeof StudioUploadRoute
   '/watch/$id': typeof WatchIdRoute
@@ -121,6 +129,7 @@ export interface FileRoutesById {
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/shorts': typeof ShortsRoute
+  '/api/video': typeof ApiVideoRoute
   '/rooms/$id': typeof RoomsIdRoute
   '/studio/upload': typeof StudioUploadRoute
   '/watch/$id': typeof WatchIdRoute
@@ -137,6 +146,7 @@ export interface FileRouteTypes {
     | '/search'
     | '/settings'
     | '/shorts'
+    | '/api/video'
     | '/rooms/$id'
     | '/studio/upload'
     | '/watch/$id'
@@ -151,6 +161,7 @@ export interface FileRouteTypes {
     | '/search'
     | '/settings'
     | '/shorts'
+    | '/api/video'
     | '/rooms/$id'
     | '/studio/upload'
     | '/watch/$id'
@@ -165,6 +176,7 @@ export interface FileRouteTypes {
     | '/search'
     | '/settings'
     | '/shorts'
+    | '/api/video'
     | '/rooms/$id'
     | '/studio/upload'
     | '/watch/$id'
@@ -180,6 +192,7 @@ export interface RootRouteChildren {
   SearchRoute: typeof SearchRoute
   SettingsRoute: typeof SettingsRoute
   ShortsRoute: typeof ShortsRoute
+  ApiVideoRoute: typeof ApiVideoRoute
   RoomsIdRoute: typeof RoomsIdRoute
   StudioUploadRoute: typeof StudioUploadRoute
   WatchIdRoute: typeof WatchIdRoute
@@ -272,6 +285,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RoomsIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/video': {
+      id: '/api/video'
+      path: '/api/video'
+      fullPath: '/api/video'
+      preLoaderRoute: typeof ApiVideoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -284,6 +304,7 @@ const rootRouteChildren: RootRouteChildren = {
   SearchRoute: SearchRoute,
   SettingsRoute: SettingsRoute,
   ShortsRoute: ShortsRoute,
+  ApiVideoRoute: ApiVideoRoute,
   RoomsIdRoute: RoomsIdRoute,
   StudioUploadRoute: StudioUploadRoute,
   WatchIdRoute: WatchIdRoute,
@@ -292,3 +313,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
