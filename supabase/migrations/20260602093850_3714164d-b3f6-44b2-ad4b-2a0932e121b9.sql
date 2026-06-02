@@ -1,0 +1,14 @@
+REVOKE ALL ON FUNCTION public.bump_like_count() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.bump_save_count() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.bump_follow_counts() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.bump_room_members() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.bump_comment_count() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.bump_view_count() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.notify_on_follow() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.notify_on_like() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.notify_on_room_checkin() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.notify_on_comment() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.handle_new_user() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.touch_updated_at() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.check_in_streak() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.check_in_streak() TO authenticated;

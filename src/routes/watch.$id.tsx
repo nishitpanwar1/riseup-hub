@@ -1,12 +1,13 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { Heart, Bookmark, Share2, ChevronLeft, Eye, Flame } from "lucide-react";
+import { Heart, Bookmark, Share2, ChevronLeft, Eye, Flame, MessageCircle, Send } from "lucide-react";
 import toast from "react-hot-toast";
 import { AppHeader } from "@/components/AppHeader";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { checkInStreak } from "@/lib/streak.functions";
+import { resolveVideoSrc } from "@/lib/video-url";
 
 export const Route = createFileRoute("/watch/$id")({
   component: WatchPage,
@@ -16,6 +17,8 @@ function WatchPage() {
   const { id } = Route.useParams();
   const { user } = useAuth();
   const nav = useNavigate();
+  const qc = useQueryClient();
+  const [comment, setComment] = useState("");
 
   const { data: video, isLoading } = useQuery({
     queryKey: ["watch", id],
@@ -30,13 +33,26 @@ function WatchPage() {
     },
   });
 
-  // record a view (best-effort)
   useEffect(() => {
-    if (!video) return;
-    supabase.from("video_views").insert({ video_id: video.id, user_id: user?.id ?? null, seconds_watched: 0, total_seconds: video.duration ?? 0 }).then(() => {});
-  }, [video?.id, user?.id]);
+    const ch = supabase
+      .channel(`watch-${id}`)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "videos", filter: `id=eq.${id}` }, () => qc.invalidateQueries({ queryKey: ["watch", id] }))
+      .on("postgres_changes", { event: "*", schema: "public", table: "video_comments", filter: `video_id=eq.${id}` }, () => qc.invalidateQueries({ queryKey: ["comments", id] }))
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [id, qc]);
+
+  const { data: comments = [] } = useQuery({
+    queryKey: ["comments", id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("video_comments").select("*, profiles(username, display_name, avatar_url)").eq("video_id", id).order("created_at", { ascending: false }).limit(100);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
 
   const streakFiredRef = useRef(false);
+  const viewFiredRef = useRef(false);
   const [completion, setCompletion] = useState(0);
 
   if (isLoading) return <Center>Loading…</Center>;
@@ -49,6 +65,10 @@ function WatchPage() {
     if (!v.duration) return;
     const pct = v.currentTime / v.duration;
     setCompletion(pct);
+    if (pct >= 0.25 && !viewFiredRef.current) {
+      viewFiredRef.current = true;
+      supabase.from("video_views").insert({ video_id: video.id, user_id: user?.id ?? null, seconds_watched: Math.round(v.currentTime), total_seconds: Math.round(v.duration), completion_rate: pct }).then(() => {});
+    }
     if (pct >= 0.8 && !streakFiredRef.current && user) {
       streakFiredRef.current = true;
       try {
@@ -70,6 +90,15 @@ function WatchPage() {
     if (error && !error.message.includes("duplicate")) return toast.error(error.message);
     toast.success("Saved");
   };
+  const postComment = async () => {
+    if (!user) return toast.error("Sign in to comment");
+    const body = comment.trim();
+    if (!body) return;
+    const { error } = await supabase.from("video_comments").insert({ video_id: video.id, user_id: user.id, body });
+    if (error) return toast.error(error.message);
+    setComment("");
+    toast.success("Comment posted");
+  };
   const share = async () => {
     const url = window.location.href;
     if ((navigator as any).share) { try { await (navigator as any).share({ title: video.title, url }); return; } catch {} }
@@ -85,7 +114,7 @@ function WatchPage() {
         </button>
         <div className="bg-black rounded-2xl overflow-hidden">
           <video
-            src={video.video_url}
+            src={resolveVideoSrc(video.video_url)}
             poster={video.thumbnail_url}
             controls
             autoPlay
@@ -116,6 +145,7 @@ function WatchPage() {
               <span className="inline-flex items-center gap-1"><Eye className="w-4 h-4" /> {video.view_count}</span>
               <span className="inline-flex items-center gap-1"><Heart className="w-4 h-4" /> {video.like_count}</span>
               <span className="inline-flex items-center gap-1"><Bookmark className="w-4 h-4" /> {video.save_count}</span>
+              <span className="inline-flex items-center gap-1"><MessageCircle className="w-4 h-4" /> {video.comment_count ?? comments.length}</span>
             </div>
           </div>
           <div className="flex gap-2">
@@ -128,6 +158,17 @@ function WatchPage() {
         {video.description && (
           <div className="card-rise p-5 mt-5 whitespace-pre-wrap text-text-secondary">{video.description}</div>
         )}
+        <section className="card-rise p-5 mt-5">
+          <h2 className="font-display font-black uppercase mb-4">Comments</h2>
+          <div className="flex gap-2 mb-5">
+            <input value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Add a comment" className="flex-1 px-3 py-2.5" />
+            <button onClick={postComment} className="btn-primary py-2 px-4 inline-flex items-center gap-2"><Send className="w-4 h-4" /> Post</button>
+          </div>
+          <div className="space-y-3">
+            {comments.map((c: any) => <div key={c.id} className="border-t border-rise pt-3"><p className="text-sm font-bold">@{c.profiles?.username ?? "user"}</p><p className="text-sm text-text-secondary whitespace-pre-wrap">{c.body}</p></div>)}
+            {comments.length === 0 && <p className="text-sm text-text-tertiary">No comments yet.</p>}
+          </div>
+        </section>
       </div>
     </div>
   );

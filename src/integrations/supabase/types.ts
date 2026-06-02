@@ -437,6 +437,48 @@ export type Database = {
           },
         ]
       }
+      video_comments: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          updated_at: string
+          user_id: string
+          video_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+          video_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+          video_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_comments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "video_comments_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       video_likes: {
         Row: {
           created_at: string | null
@@ -563,6 +605,7 @@ export type Database = {
       videos: {
         Row: {
           category: string
+          comment_count: number | null
           created_at: string | null
           description: string | null
           duration: number
@@ -581,6 +624,7 @@ export type Database = {
         }
         Insert: {
           category: string
+          comment_count?: number | null
           created_at?: string | null
           description?: string | null
           duration: number
@@ -599,6 +643,7 @@ export type Database = {
         }
         Update: {
           category?: string
+          comment_count?: number | null
           created_at?: string | null
           description?: string | null
           duration?: number

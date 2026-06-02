@@ -4,6 +4,7 @@ import { Heart, Bookmark, Flame, Users, Share2, Play, Volume2, VolumeX, ChevronL
 import toast from "react-hot-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { resolveVideoSrc } from "@/lib/video-url";
 
 export const Route = createFileRoute("/shorts")({
   component: ShortsPage,
@@ -18,6 +19,7 @@ type Short = {
   thumbnail_url: string;
   like_count: number;
   save_count: number;
+  view_count: number;
   user_id: string;
   created_at: string;
   profiles: { username: string; display_name: string; avatar_url: string | null; creator_tier: string } | null;
@@ -26,7 +28,7 @@ type Short = {
 const PAGE = 8;
 const STORAGE_KEY = "riseup:shorts:active";
 
-const SELECT = "id, title, description, category, video_url, thumbnail_url, like_count, save_count, user_id, created_at, profiles(username, display_name, avatar_url, creator_tier)";
+const SELECT = "id, title, description, category, video_url, thumbnail_url, like_count, save_count, view_count, user_id, created_at, profiles(username, display_name, avatar_url, creator_tier)";
 
 function ShortsPage() {
   const { user } = useAuth();
@@ -101,7 +103,7 @@ function ShortsPage() {
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "videos" }, (payload) => {
         const row: any = payload.new;
         if (!row) return;
-        setItems(prev => prev.map(s => s.id === row.id ? { ...s, like_count: row.like_count, save_count: row.save_count } : s));
+        setItems(prev => prev.map(s => s.id === row.id ? { ...s, like_count: row.like_count, save_count: row.save_count, view_count: row.view_count } : s));
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -223,6 +225,7 @@ function ShortItem({
   const videoRef = useRef<HTMLVideoElement>(null);
   const progressRef = useRef<HTMLDivElement>(null);
   const lastTapRef = useRef(0);
+  const viewedRef = useRef(false);
 
   useEffect(() => {
     const el = wrapRef.current;
@@ -246,6 +249,12 @@ function ShortItem({
     if (isActive) {
       v.currentTime = 0;
       v.play().catch(() => {});
+      if (!viewedRef.current) {
+        viewedRef.current = true;
+        supabase.auth.getUser().then(({ data }) => {
+          supabase.from("video_views").insert({ video_id: short.id, user_id: data.user?.id ?? null, seconds_watched: 0, total_seconds: Math.round(v.duration || 0) }).then(() => {});
+        });
+      }
     } else {
       v.pause();
     }
@@ -273,7 +282,7 @@ function ShortItem({
         {shouldMount ? (
           <video
             ref={videoRef}
-            src={short.video_url}
+            src={resolveVideoSrc(short.video_url)}
             poster={short.thumbnail_url}
             loop
             muted={muted}
@@ -319,6 +328,7 @@ function ShortItem({
         <div className="absolute right-3 bottom-28 z-30 flex flex-col gap-4 items-center text-white">
           <ActionBtn icon={<Flame className="w-6 h-6 text-brand-orange" />} count={null} onClick={() => toast.success("Streak +1 today")} />
           <ActionBtn icon={<Heart className="w-6 h-6" />} count={short.like_count} onClick={() => like(short.id, signedIn)} />
+          <ActionBtn icon={<Play className="w-6 h-6" />} count={short.view_count} onClick={() => {}} />
           <ActionBtn icon={<Bookmark className="w-6 h-6" />} count={short.save_count} onClick={() => save(short.id, signedIn)} />
           <ActionBtn icon={<Users className="w-6 h-6 text-accent-mint" />} count={null} onClick={() => toast("Join the accountability room from the video page", { icon: "🛡️" })} />
           <ActionBtn icon={<Share2 className="w-6 h-6" />} count={null} onClick={() => shareShort(short.title)} />
