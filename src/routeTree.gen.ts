@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as StudioRouteImport } from './routes/studio'
 import { Route as ShortsRouteImport } from './routes/shorts'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SearchRouteImport } from './routes/search'
@@ -23,6 +24,11 @@ import { Route as StudioUploadRouteImport } from './routes/studio.upload'
 import { Route as RoomsIdRouteImport } from './routes/rooms.$id'
 import { Route as ApiVideoRouteImport } from './routes/api/video'
 
+const StudioRoute = StudioRouteImport.update({
+  id: '/studio',
+  path: '/studio',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ShortsRoute = ShortsRouteImport.update({
   id: '/shorts',
   path: '/shorts',
@@ -74,9 +80,9 @@ const WatchIdRoute = WatchIdRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const StudioUploadRoute = StudioUploadRouteImport.update({
-  id: '/studio/upload',
-  path: '/studio/upload',
-  getParentRoute: () => rootRouteImport,
+  id: '/upload',
+  path: '/upload',
+  getParentRoute: () => StudioRoute,
 } as any)
 const RoomsIdRoute = RoomsIdRouteImport.update({
   id: '/rooms/$id',
@@ -98,6 +104,7 @@ export interface FileRoutesByFullPath {
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/shorts': typeof ShortsRoute
+  '/studio': typeof StudioRouteWithChildren
   '/api/video': typeof ApiVideoRoute
   '/rooms/$id': typeof RoomsIdRoute
   '/studio/upload': typeof StudioUploadRoute
@@ -113,6 +120,7 @@ export interface FileRoutesByTo {
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/shorts': typeof ShortsRoute
+  '/studio': typeof StudioRouteWithChildren
   '/api/video': typeof ApiVideoRoute
   '/rooms/$id': typeof RoomsIdRoute
   '/studio/upload': typeof StudioUploadRoute
@@ -129,6 +137,7 @@ export interface FileRoutesById {
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/shorts': typeof ShortsRoute
+  '/studio': typeof StudioRouteWithChildren
   '/api/video': typeof ApiVideoRoute
   '/rooms/$id': typeof RoomsIdRoute
   '/studio/upload': typeof StudioUploadRoute
@@ -146,6 +155,7 @@ export interface FileRouteTypes {
     | '/search'
     | '/settings'
     | '/shorts'
+    | '/studio'
     | '/api/video'
     | '/rooms/$id'
     | '/studio/upload'
@@ -161,6 +171,7 @@ export interface FileRouteTypes {
     | '/search'
     | '/settings'
     | '/shorts'
+    | '/studio'
     | '/api/video'
     | '/rooms/$id'
     | '/studio/upload'
@@ -176,6 +187,7 @@ export interface FileRouteTypes {
     | '/search'
     | '/settings'
     | '/shorts'
+    | '/studio'
     | '/api/video'
     | '/rooms/$id'
     | '/studio/upload'
@@ -192,15 +204,22 @@ export interface RootRouteChildren {
   SearchRoute: typeof SearchRoute
   SettingsRoute: typeof SettingsRoute
   ShortsRoute: typeof ShortsRoute
+  StudioRoute: typeof StudioRouteWithChildren
   ApiVideoRoute: typeof ApiVideoRoute
   RoomsIdRoute: typeof RoomsIdRoute
-  StudioUploadRoute: typeof StudioUploadRoute
   WatchIdRoute: typeof WatchIdRoute
   RoomsIndexRoute: typeof RoomsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/studio': {
+      id: '/studio'
+      path: '/studio'
+      fullPath: '/studio'
+      preLoaderRoute: typeof StudioRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/shorts': {
       id: '/shorts'
       path: '/shorts'
@@ -273,10 +292,10 @@ declare module '@tanstack/react-router' {
     }
     '/studio/upload': {
       id: '/studio/upload'
-      path: '/studio/upload'
+      path: '/upload'
       fullPath: '/studio/upload'
       preLoaderRoute: typeof StudioUploadRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof StudioRoute
     }
     '/rooms/$id': {
       id: '/rooms/$id'
@@ -295,6 +314,17 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface StudioRouteChildren {
+  StudioUploadRoute: typeof StudioUploadRoute
+}
+
+const StudioRouteChildren: StudioRouteChildren = {
+  StudioUploadRoute: StudioUploadRoute,
+}
+
+const StudioRouteWithChildren =
+  StudioRoute._addFileChildren(StudioRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   UsernameRoute: UsernameRoute,
@@ -304,12 +334,22 @@ const rootRouteChildren: RootRouteChildren = {
   SearchRoute: SearchRoute,
   SettingsRoute: SettingsRoute,
   ShortsRoute: ShortsRoute,
+  StudioRoute: StudioRouteWithChildren,
   ApiVideoRoute: ApiVideoRoute,
   RoomsIdRoute: RoomsIdRoute,
-  StudioUploadRoute: StudioUploadRoute,
   WatchIdRoute: WatchIdRoute,
   RoomsIndexRoute: RoomsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
