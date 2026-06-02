@@ -52,6 +52,7 @@ function WatchPage() {
   });
 
   const streakFiredRef = useRef(false);
+  const viewFiredRef = useRef(false);
   const [completion, setCompletion] = useState(0);
 
   if (isLoading) return <Center>Loading…</Center>;
