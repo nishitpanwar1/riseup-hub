@@ -246,3 +246,31 @@ function probeVideo(file: File): Promise<Probe> {
     v.src = url;
   });
 }
+
+function captureVideoThumbnail(file: File, seekTo = 1): Promise<Blob | null> {
+  return new Promise((resolve) => {
+    const v = document.createElement("video");
+    v.preload = "auto";
+    v.muted = true;
+    v.playsInline = true;
+    v.crossOrigin = "anonymous";
+    const url = URL.createObjectURL(file);
+    const cleanup = () => URL.revokeObjectURL(url);
+    v.onloadedmetadata = () => {
+      v.currentTime = Math.min(seekTo, Math.max(0.1, (v.duration || 1) * 0.1));
+    };
+    v.onseeked = () => {
+      try {
+        const w = v.videoWidth, h = v.videoHeight;
+        const canvas = document.createElement("canvas");
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) { cleanup(); return resolve(null); }
+        ctx.drawImage(v, 0, 0, w, h);
+        canvas.toBlob((b) => { cleanup(); resolve(b); }, "image/jpeg", 0.85);
+      } catch { cleanup(); resolve(null); }
+    };
+    v.onerror = () => { cleanup(); resolve(null); };
+    v.src = url;
+  });
+}
