@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { Flame, Home, Compass, Users, Swords, User as UserIcon, History as HistoryIcon, Heart, Clock, Trophy } from "lucide-react";
+import { Flame, Home, Compass, Users, Swords, User as UserIcon, History as HistoryIcon, Heart, Clock, Trophy, ShoppingBag } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -177,6 +177,7 @@ function FeedPage() {
             <SideBtn active={view === "home"} onClick={() => setSearch({ view: "home", cat: undefined })} icon={<Home className="w-5 h-5" />} label="Home" />
             <SideLink to="/shorts" icon={<Compass className="w-5 h-5" />} label="Shorts" />
             <SideLink to="/rooms" icon={<Users className="w-5 h-5" />} label="Rooms" />
+            <SideLink to="/shop" icon={<ShoppingBag className="w-5 h-5" />} label="Shop" />
             <SideBtn active={cat === "trending"} onClick={() => setSearch({ cat: "trending", view: "home" })} icon={<Swords className="w-5 h-5" />} label="Arena" />
           </nav>
 
