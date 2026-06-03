@@ -102,13 +102,21 @@ function UploadPage() {
         xhr.send(file);
       });
 
-      // 3. thumbnail (optional) → supabase storage
+      // 3. thumbnail → supabase storage (auto-generate from video frame if none provided)
       let thumb = `https://placehold.co/${isShort ? "405x720" : "720x405"}/141414/FF6B35.png?text=${encodeURIComponent(vals.title)}`;
-      if (thumbFile) {
-        const tExt = (thumbFile.name.split(".").pop() || "jpg").toLowerCase();
-        const tPath = `${u.user.id}/${Date.now()}.${tExt}`;
+      let thumbBlob: Blob | null = thumbFile;
+      let thumbExt = thumbFile ? (thumbFile.name.split(".").pop() || "jpg").toLowerCase() : "jpg";
+      let thumbType = thumbFile?.type || "image/jpeg";
+      if (!thumbBlob) {
+        try {
+          const auto = await captureVideoThumbnail(file);
+          if (auto) { thumbBlob = auto; thumbExt = "jpg"; thumbType = "image/jpeg"; }
+        } catch (e) { console.warn("auto-thumb failed", e); }
+      }
+      if (thumbBlob) {
+        const tPath = `${u.user.id}/${Date.now()}.${thumbExt}`;
         const { error: tErr } = await supabase.storage.from("thumbnails")
-          .upload(tPath, thumbFile, { upsert: false, contentType: thumbFile.type || "image/jpeg" });
+          .upload(tPath, thumbBlob, { upsert: false, contentType: thumbType });
         if (tErr) throw tErr;
         const { data: tPub } = supabase.storage.from("thumbnails").getPublicUrl(tPath);
         thumb = tPub.publicUrl;
@@ -235,6 +243,34 @@ function probeVideo(file: File): Promise<Probe> {
       else resolve(out);
     };
     v.onerror = () => { URL.revokeObjectURL(url); reject(new Error("video read failed")); };
+    v.src = url;
+  });
+}
+
+function captureVideoThumbnail(file: File, seekTo = 1): Promise<Blob | null> {
+  return new Promise((resolve) => {
+    const v = document.createElement("video");
+    v.preload = "auto";
+    v.muted = true;
+    v.playsInline = true;
+    v.crossOrigin = "anonymous";
+    const url = URL.createObjectURL(file);
+    const cleanup = () => URL.revokeObjectURL(url);
+    v.onloadedmetadata = () => {
+      v.currentTime = Math.min(seekTo, Math.max(0.1, (v.duration || 1) * 0.1));
+    };
+    v.onseeked = () => {
+      try {
+        const w = v.videoWidth, h = v.videoHeight;
+        const canvas = document.createElement("canvas");
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) { cleanup(); return resolve(null); }
+        ctx.drawImage(v, 0, 0, w, h);
+        canvas.toBlob((b) => { cleanup(); resolve(b); }, "image/jpeg", 0.85);
+      } catch { cleanup(); resolve(null); }
+    };
+    v.onerror = () => { cleanup(); resolve(null); };
     v.src = url;
   });
 }
