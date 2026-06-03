@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as StudioRouteImport } from './routes/studio'
 import { Route as ShortsRouteImport } from './routes/shorts'
+import { Route as ShopRouteImport } from './routes/shop'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as NotificationsRouteImport } from './routes/notifications'
@@ -21,6 +22,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as RoomsIndexRouteImport } from './routes/rooms.index'
 import { Route as WatchIdRouteImport } from './routes/watch.$id'
 import { Route as StudioUploadRouteImport } from './routes/studio.upload'
+import { Route as StudioShopRouteImport } from './routes/studio.shop'
 import { Route as RoomsIdRouteImport } from './routes/rooms.$id'
 import { Route as ApiVideoRouteImport } from './routes/api/video'
 
@@ -32,6 +34,11 @@ const StudioRoute = StudioRouteImport.update({
 const ShortsRoute = ShortsRouteImport.update({
   id: '/shorts',
   path: '/shorts',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ShopRoute = ShopRouteImport.update({
+  id: '/shop',
+  path: '/shop',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsRoute = SettingsRouteImport.update({
@@ -84,6 +91,11 @@ const StudioUploadRoute = StudioUploadRouteImport.update({
   path: '/upload',
   getParentRoute: () => StudioRoute,
 } as any)
+const StudioShopRoute = StudioShopRouteImport.update({
+  id: '/shop',
+  path: '/shop',
+  getParentRoute: () => StudioRoute,
+} as any)
 const RoomsIdRoute = RoomsIdRouteImport.update({
   id: '/rooms/$id',
   path: '/rooms/$id',
@@ -103,10 +115,12 @@ export interface FileRoutesByFullPath {
   '/notifications': typeof NotificationsRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
+  '/shop': typeof ShopRoute
   '/shorts': typeof ShortsRoute
   '/studio': typeof StudioRouteWithChildren
   '/api/video': typeof ApiVideoRoute
   '/rooms/$id': typeof RoomsIdRoute
+  '/studio/shop': typeof StudioShopRoute
   '/studio/upload': typeof StudioUploadRoute
   '/watch/$id': typeof WatchIdRoute
   '/rooms/': typeof RoomsIndexRoute
@@ -119,10 +133,12 @@ export interface FileRoutesByTo {
   '/notifications': typeof NotificationsRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
+  '/shop': typeof ShopRoute
   '/shorts': typeof ShortsRoute
   '/studio': typeof StudioRouteWithChildren
   '/api/video': typeof ApiVideoRoute
   '/rooms/$id': typeof RoomsIdRoute
+  '/studio/shop': typeof StudioShopRoute
   '/studio/upload': typeof StudioUploadRoute
   '/watch/$id': typeof WatchIdRoute
   '/rooms': typeof RoomsIndexRoute
@@ -136,10 +152,12 @@ export interface FileRoutesById {
   '/notifications': typeof NotificationsRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
+  '/shop': typeof ShopRoute
   '/shorts': typeof ShortsRoute
   '/studio': typeof StudioRouteWithChildren
   '/api/video': typeof ApiVideoRoute
   '/rooms/$id': typeof RoomsIdRoute
+  '/studio/shop': typeof StudioShopRoute
   '/studio/upload': typeof StudioUploadRoute
   '/watch/$id': typeof WatchIdRoute
   '/rooms/': typeof RoomsIndexRoute
@@ -154,10 +172,12 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/search'
     | '/settings'
+    | '/shop'
     | '/shorts'
     | '/studio'
     | '/api/video'
     | '/rooms/$id'
+    | '/studio/shop'
     | '/studio/upload'
     | '/watch/$id'
     | '/rooms/'
@@ -170,10 +190,12 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/search'
     | '/settings'
+    | '/shop'
     | '/shorts'
     | '/studio'
     | '/api/video'
     | '/rooms/$id'
+    | '/studio/shop'
     | '/studio/upload'
     | '/watch/$id'
     | '/rooms'
@@ -186,10 +208,12 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/search'
     | '/settings'
+    | '/shop'
     | '/shorts'
     | '/studio'
     | '/api/video'
     | '/rooms/$id'
+    | '/studio/shop'
     | '/studio/upload'
     | '/watch/$id'
     | '/rooms/'
@@ -203,6 +227,7 @@ export interface RootRouteChildren {
   NotificationsRoute: typeof NotificationsRoute
   SearchRoute: typeof SearchRoute
   SettingsRoute: typeof SettingsRoute
+  ShopRoute: typeof ShopRoute
   ShortsRoute: typeof ShortsRoute
   StudioRoute: typeof StudioRouteWithChildren
   ApiVideoRoute: typeof ApiVideoRoute
@@ -225,6 +250,13 @@ declare module '@tanstack/react-router' {
       path: '/shorts'
       fullPath: '/shorts'
       preLoaderRoute: typeof ShortsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/shop': {
+      id: '/shop'
+      path: '/shop'
+      fullPath: '/shop'
+      preLoaderRoute: typeof ShopRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings': {
@@ -297,6 +329,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StudioUploadRouteImport
       parentRoute: typeof StudioRoute
     }
+    '/studio/shop': {
+      id: '/studio/shop'
+      path: '/shop'
+      fullPath: '/studio/shop'
+      preLoaderRoute: typeof StudioShopRouteImport
+      parentRoute: typeof StudioRoute
+    }
     '/rooms/$id': {
       id: '/rooms/$id'
       path: '/rooms/$id'
@@ -315,10 +354,12 @@ declare module '@tanstack/react-router' {
 }
 
 interface StudioRouteChildren {
+  StudioShopRoute: typeof StudioShopRoute
   StudioUploadRoute: typeof StudioUploadRoute
 }
 
 const StudioRouteChildren: StudioRouteChildren = {
+  StudioShopRoute: StudioShopRoute,
   StudioUploadRoute: StudioUploadRoute,
 }
 
@@ -333,6 +374,7 @@ const rootRouteChildren: RootRouteChildren = {
   NotificationsRoute: NotificationsRoute,
   SearchRoute: SearchRoute,
   SettingsRoute: SettingsRoute,
+  ShopRoute: ShopRoute,
   ShortsRoute: ShortsRoute,
   StudioRoute: StudioRouteWithChildren,
   ApiVideoRoute: ApiVideoRoute,

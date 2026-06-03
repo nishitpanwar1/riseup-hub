@@ -35,7 +35,7 @@ function StudioShopPage() {
     queryKey: ["my-products", user?.id],
     enabled: !!user,
     queryFn: async () => {
-      const { data, error } = await supabase.from("digital_products").select("*").eq("user_id", user!.id).order("created_at", { ascending: false });
+      const { data, error } = await (supabase as any).from("digital_products").select("*").eq("user_id", user!.id).order("created_at", { ascending: false });
       if (error) throw error;
       return data ?? [];
     },
@@ -45,7 +45,7 @@ function StudioShopPage() {
     queryKey: ["my-gateways", user?.id],
     enabled: !!user,
     queryFn: async () => {
-      const { data, error } = await supabase.from("user_payment_gateways").select("*").eq("user_id", user!.id).order("created_at", { ascending: false });
+      const { data, error } = await (supabase as any).from("user_payment_gateways").select("*").eq("user_id", user!.id).order("created_at", { ascending: false });
       if (error) throw error;
       return data ?? [];
     },
@@ -79,7 +79,7 @@ function StudioShopPage() {
                   <p className="font-bold text-sm">{PROVIDERS.find(p => p.id === g.provider)?.label ?? g.provider}</p>
                   <p className="text-xs text-text-tertiary truncate">{g.account_identifier}</p>
                 </div>
-                <button onClick={async () => { await supabase.from("user_payment_gateways").delete().eq("id", g.id); toast.success("Removed"); reload(); }} className="text-text-tertiary hover:text-accent-red"><Trash2 className="w-4 h-4" /></button>
+                <button onClick={async () => { await (supabase as any).from("user_payment_gateways").delete().eq("id", g.id); toast.success("Removed"); reload(); }} className="text-text-tertiary hover:text-accent-red"><Trash2 className="w-4 h-4" /></button>
               </div>
             ))}
           </div>
@@ -112,7 +112,7 @@ function StudioShopPage() {
                   <p className="text-xs text-text-tertiary">{(p.price_cents/100).toLocaleString(undefined,{style:"currency",currency:p.currency})} · {p.status} · {p.sold_count} sold</p>
                 </div>
                 <button onClick={() => { setEditingId(p.id); setShowProductForm(true); }} className="text-text-secondary hover:text-text-primary p-2"><Edit3 className="w-4 h-4" /></button>
-                <button onClick={async () => { if(!confirm("Delete this product?")) return; await supabase.from("digital_products").delete().eq("id", p.id); reload(); }} className="text-text-tertiary hover:text-accent-red p-2"><Trash2 className="w-4 h-4" /></button>
+                <button onClick={async () => { if(!confirm("Delete this product?")) return; await (supabase as any).from("digital_products").delete().eq("id", p.id); reload(); }} className="text-text-tertiary hover:text-accent-red p-2"><Trash2 className="w-4 h-4" /></button>
               </div>
             ))}
           </div>
@@ -132,7 +132,7 @@ function GatewayForm({ onSaved }: { onSaved: () => void }) {
   const save = async () => {
     if (!user || !identifier.trim()) return toast.error("Enter your payment URL or ID");
     setSaving(true);
-    const { error } = await supabase.from("user_payment_gateways").insert({
+    const { error } = await (supabase as any).from("user_payment_gateways").insert({
       user_id: user.id, provider, account_identifier: identifier.trim(), display_name: displayName.trim() || null,
     });
     setSaving(false);
@@ -200,8 +200,8 @@ function ProductForm({ gateways, editing, onClose, onSaved }: { gateways: any[];
       };
 
       const { error } = editing
-        ? await supabase.from("digital_products").update(payload).eq("id", editing.id)
-        : await supabase.from("digital_products").insert(payload);
+        ? await (supabase as any).from("digital_products").update(payload).eq("id", editing.id)
+        : await (supabase as any).from("digital_products").insert(payload);
       if (error) throw error;
       toast.success(editing ? "Updated" : "Listed");
       onSaved();
