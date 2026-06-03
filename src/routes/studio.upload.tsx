@@ -102,13 +102,21 @@ function UploadPage() {
         xhr.send(file);
       });
 
-      // 3. thumbnail (optional) → supabase storage
+      // 3. thumbnail → supabase storage (auto-generate from video frame if none provided)
       let thumb = `https://placehold.co/${isShort ? "405x720" : "720x405"}/141414/FF6B35.png?text=${encodeURIComponent(vals.title)}`;
-      if (thumbFile) {
-        const tExt = (thumbFile.name.split(".").pop() || "jpg").toLowerCase();
-        const tPath = `${u.user.id}/${Date.now()}.${tExt}`;
+      let thumbBlob: Blob | null = thumbFile;
+      let thumbExt = thumbFile ? (thumbFile.name.split(".").pop() || "jpg").toLowerCase() : "jpg";
+      let thumbType = thumbFile?.type || "image/jpeg";
+      if (!thumbBlob) {
+        try {
+          const auto = await captureVideoThumbnail(file);
+          if (auto) { thumbBlob = auto; thumbExt = "jpg"; thumbType = "image/jpeg"; }
+        } catch (e) { console.warn("auto-thumb failed", e); }
+      }
+      if (thumbBlob) {
+        const tPath = `${u.user.id}/${Date.now()}.${thumbExt}`;
         const { error: tErr } = await supabase.storage.from("thumbnails")
-          .upload(tPath, thumbFile, { upsert: false, contentType: thumbFile.type || "image/jpeg" });
+          .upload(tPath, thumbBlob, { upsert: false, contentType: thumbType });
         if (tErr) throw tErr;
         const { data: tPub } = supabase.storage.from("thumbnails").getPublicUrl(tPath);
         thumb = tPub.publicUrl;
