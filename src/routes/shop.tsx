@@ -15,7 +15,7 @@ function ShopPage() {
   const { data: products = [], isLoading, refetch } = useQuery({
     queryKey: ["shop-products"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("digital_products")
         .select("id, title, description, price_cents, currency, cover_url, category, tags, sold_count, user_id, external_buy_url, profiles:user_id(username, display_name, avatar_url)")
         .eq("status", "active")
