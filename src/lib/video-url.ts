@@ -1,14 +1,6 @@
-const STORJ_HOST_MARKERS = ["storjshare.io", "storj.io"];
-
+// Storj raw linkshare URLs support Range + CORS, so play them directly
+// (the previous /api/video proxy added latency and could stall on the Worker).
 export function resolveVideoSrc(url: string | null | undefined) {
   if (!url) return "";
-  try {
-    const parsed = new URL(url);
-    if (STORJ_HOST_MARKERS.some((marker) => parsed.hostname.includes(marker))) {
-      return `/api/video?src=${encodeURIComponent(url)}`;
-    }
-  } catch {
-    return url;
-  }
-  return url;
+  return url.replace("/s/", "/raw/");
 }
