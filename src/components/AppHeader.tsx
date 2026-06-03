@@ -1,5 +1,5 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { Flame, Upload, LogOut, User as UserIcon, Search, Bell, Settings, BarChart3 } from "lucide-react";
+import { Flame, Upload, LogOut, User as UserIcon, Search, Bell, Settings, BarChart3, ShoppingBag } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
@@ -57,6 +57,9 @@ export function AppHeader() {
               </Link>
               <Link to="/studio" className="p-2 rounded-lg hover:bg-bg-card hidden sm:inline-flex" title="Studio">
                 <BarChart3 className="w-5 h-5" />
+              </Link>
+              <Link to="/shop" className="p-2 rounded-lg hover:bg-bg-card hidden sm:inline-flex" title="Shop">
+                <ShoppingBag className="w-5 h-5" />
               </Link>
               <Link to="/notifications" className="p-2 rounded-lg hover:bg-bg-card" title="Notifications">
                 <Bell className="w-5 h-5" />

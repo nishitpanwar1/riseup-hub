@@ -1,15 +1,19 @@
-import { createFileRoute, useNavigate, redirect } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, redirect, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import toast from "react-hot-toast";
-import { Upload, Film } from "lucide-react";
+import { Upload, Film, Zap, Clapperboard } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { supabase } from "@/integrations/supabase/client";
-import { getStorjUploadUrl } from "@/lib/upload.functions";
+
+type Search = { type?: "short" | "long" };
 
 export const Route = createFileRoute("/studio/upload")({
+  validateSearch: (s: Record<string, unknown>): Search => ({
+    type: s.type === "long" ? "long" : s.type === "short" ? "short" : undefined,
+  }),
   beforeLoad: async () => {
     const { data } = await supabase.auth.getSession();
     if (!data.session) throw redirect({ to: "/auth" });
@@ -29,20 +33,12 @@ type Vals = z.infer<typeof schema>;
 
 type Probe = { duration: number; width: number; height: number };
 
-const RATIOS: { label: string; value: number; short: boolean }[] = [
-  { label: "9:16",  value: 9/16,  short: true  },
-  { label: "3:4",   value: 3/4,   short: true  },
-  { label: "4:5",   value: 4/5,   short: true  },
-  { label: "1:1",   value: 1,     short: true  },
-  { label: "16:9",  value: 16/9,  short: false },
-];
-
 function UploadPage() {
   const nav = useNavigate();
+  const search = Route.useSearch();
+  const [mode, setMode] = useState<"short" | "long">(search.type ?? "short");
   const [file, setFile] = useState<File | null>(null);
   const [probe, setProbe] = useState<Probe | null>(null);
-  const [aspect, setAspect] = useState<string | null>(null);
-  const [isShort, setIsShort] = useState<boolean>(true);
   const [thumbFile, setThumbFile] = useState<File | null>(null);
   const [thumbPreview, setThumbPreview] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
@@ -52,18 +48,10 @@ function UploadPage() {
   });
 
   const handleFile = async (f: File | null) => {
-    setProbe(null); setAspect(null); setFile(f);
+    setProbe(null); setFile(f);
     if (!f) return;
     try {
       const p = await probeVideo(f);
-      const ratio = p.width / p.height;
-      const match = RATIOS.find(r => Math.abs(ratio - r.value) / r.value < 0.08);
-      if (!match) {
-        toast.error(`Allowed ratios: 9:16, 3:4, 4:5, 1:1, 16:9 (yours: ${p.width}×${p.height})`);
-        setFile(null); return;
-      }
-      setAspect(match.label);
-      setIsShort(match.short);
       setProbe(p);
     } catch {
       toast.error("Could not read video metadata");
@@ -78,31 +66,29 @@ function UploadPage() {
   };
 
   const onSubmit = async (vals: Vals) => {
-    if (!file || !probe || !aspect) return toast.error("Pick a valid video first");
+    if (!file || !probe) return toast.error("Pick a video first");
     const { data: u } = await supabase.auth.getUser();
     if (!u.user) return toast.error("Sign in first");
 
+    const isShort = mode === "short";
+
     try {
       setProgress(5);
-      // 1. presigned URL from Storj via server fn
-      const { uploadUrl, playbackUrl } = await getStorjUploadUrl({
-        data: { filename: file.name, fileType: file.type || "video/mp4", folder: isShort ? "shorts" : "videos" },
+      // 1. upload video directly to Supabase Storage `media` bucket
+      const ext = (file.name.split(".").pop() || "mp4").toLowerCase().replace(/[^a-z0-9]/g, "");
+      const folder = isShort ? "shorts" : "videos";
+      const videoPath = `${folder}/${u.user.id}/${crypto.randomUUID()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from("media").upload(videoPath, file, {
+        contentType: file.type || "video/mp4",
+        cacheControl: "3600",
+        upsert: false,
       });
+      if (upErr) throw upErr;
+      setProgress(70);
+      const { data: pub } = supabase.storage.from("media").getPublicUrl(videoPath);
+      const playbackUrl = pub.publicUrl;
 
-      // 2. direct PUT to Storj with XHR for progress
-      await new Promise<void>((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open("PUT", uploadUrl, true);
-        xhr.setRequestHeader("Content-Type", file.type || "video/mp4");
-        xhr.upload.onprogress = (e) => {
-          if (e.lengthComputable) setProgress(5 + Math.round((e.loaded / e.total) * 75));
-        };
-        xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(`Upload failed: ${xhr.status} ${xhr.responseText}`)));
-        xhr.onerror = () => reject(new Error("Network error during upload"));
-        xhr.send(file);
-      });
-
-      // 3. thumbnail → supabase storage (auto-generate from video frame if none provided)
+      // 2. thumbnail
       let thumb = `https://placehold.co/${isShort ? "405x720" : "720x405"}/141414/FF6B35.png?text=${encodeURIComponent(vals.title)}`;
       let thumbBlob: Blob | null = thumbFile;
       let thumbExt = thumbFile ? (thumbFile.name.split(".").pop() || "jpg").toLowerCase() : "jpg";
@@ -114,12 +100,12 @@ function UploadPage() {
         } catch (e) { console.warn("auto-thumb failed", e); }
       }
       if (thumbBlob) {
-        const tPath = `${u.user.id}/${Date.now()}.${thumbExt}`;
-        const { error: tErr } = await supabase.storage.from("thumbnails")
-          .upload(tPath, thumbBlob, { upsert: false, contentType: thumbType });
-        if (tErr) throw tErr;
-        const { data: tPub } = supabase.storage.from("thumbnails").getPublicUrl(tPath);
-        thumb = tPub.publicUrl;
+        const tPath = `thumbs/${u.user.id}/${Date.now()}.${thumbExt}`;
+        const { error: tErr } = await supabase.storage.from("media").upload(tPath, thumbBlob, { upsert: false, contentType: thumbType });
+        if (!tErr) {
+          const { data: tPub } = supabase.storage.from("media").getPublicUrl(tPath);
+          thumb = tPub.publicUrl;
+        }
       }
       setProgress(90);
 
@@ -139,7 +125,7 @@ function UploadPage() {
       });
       if (insErr) throw insErr;
       setProgress(100);
-      toast.success("Live in the feed");
+      toast.success(isShort ? "Short is live" : "Video is live");
       nav({ to: isShort ? "/shorts" : "/feed" });
     } catch (e: any) {
       console.error(e);
@@ -153,7 +139,21 @@ function UploadPage() {
       <AppHeader />
       <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
         <h1 className="text-3xl font-black uppercase mb-1">Studio · upload</h1>
-        <p className="text-text-secondary mb-6">Direct-to-Storj streaming · no size cap · 9:16 · 3:4 · 4:5 · 1:1 · 16:9</p>
+        <p className="text-text-secondary mb-6">No size cap · streams directly · auto-thumbnail</p>
+
+        {/* Mode toggle */}
+        <div className="grid grid-cols-2 gap-3 mb-5">
+          <button onClick={() => setMode("short")} className={`p-4 rounded-xl border-2 text-left transition-all ${mode === "short" ? "border-brand-orange bg-brand-orange/10" : "border-rise bg-bg-surface hover:border-brand-purple"}`}>
+            <Zap className="w-6 h-6 text-brand-orange mb-2" />
+            <p className="font-display font-black uppercase">Short</p>
+            <p className="text-xs text-text-tertiary">Vertical · 9:16 · &lt;60s recommended</p>
+          </button>
+          <button onClick={() => setMode("long")} className={`p-4 rounded-xl border-2 text-left transition-all ${mode === "long" ? "border-brand-purple bg-brand-purple/10" : "border-rise bg-bg-surface hover:border-brand-purple"}`}>
+            <Clapperboard className="w-6 h-6 text-brand-purple mb-2" />
+            <p className="font-display font-black uppercase">Long form</p>
+            <p className="text-xs text-text-tertiary">Horizontal · 16:9 · full episodes</p>
+          </button>
+        </div>
 
         <form
           method="post"
@@ -169,7 +169,7 @@ function UploadPage() {
               <p className="font-bold">{file ? file.name : "Click or drop your video"}</p>
               {file && probe && (
                 <p className="text-xs text-text-tertiary mt-1 font-stat">
-                  {(file.size / 1024 / 1024).toFixed(1)} MB · {probe.width}×{probe.height} · {aspect} · {Math.round(probe.duration)}s
+                  {(file.size / 1024 / 1024).toFixed(1)} MB · {probe.width}×{probe.height} · {Math.round(probe.duration)}s
                 </p>
               )}
             </div>
@@ -195,7 +195,7 @@ function UploadPage() {
                 <div className="w-20 h-20 rounded-md bg-bg-primary flex items-center justify-center text-text-tertiary text-xs">No image</div>
               )}
               <p className="text-sm text-text-secondary flex-1 text-left">
-                {thumbFile ? thumbFile.name : "Click to upload a cover image (auto-generated if blank)"}
+                {thumbFile ? thumbFile.name : "Click to upload a cover (auto-generated if blank)"}
               </p>
             </div>
           </Field>
@@ -212,9 +212,12 @@ function UploadPage() {
             </div>
           )}
 
-          <button disabled={isSubmitting || !file || !aspect} type="submit" className="btn-primary w-full inline-flex items-center justify-center gap-2 disabled:opacity-40">
-            <Upload className="w-4 h-4" /> {isSubmitting ? "Uploading…" : "Publish"}
+          <button disabled={isSubmitting || !file} type="submit" className="btn-primary w-full inline-flex items-center justify-center gap-2 disabled:opacity-40">
+            <Upload className="w-4 h-4" /> {isSubmitting ? "Uploading…" : `Publish ${mode === "short" ? "short" : "video"}`}
           </button>
+          <p className="text-xs text-text-tertiary text-center">
+            Want to sell digital products instead? <Link to="/studio/shop" className="text-brand-orange font-bold">Open Shop</Link>
+          </p>
         </form>
       </div>
     </div>
