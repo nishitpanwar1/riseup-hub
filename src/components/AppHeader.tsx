@@ -22,7 +22,10 @@ export function AppHeader() {
   useEffect(() => {
     const t = setTimeout(() => {
       const current = (routerState.location.search as any)?.q ?? "";
+      const pathname = routerState.location.pathname;
       if (q === current) return;
+      if (!q.trim() && !current) return;
+      if (pathname !== "/feed" && !q.trim()) return;
       nav({ to: "/feed", search: (prev: any) => ({ ...prev, q: q || undefined }) as any });
     }, 200);
     return () => clearTimeout(t);
