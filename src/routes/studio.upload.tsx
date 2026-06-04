@@ -74,18 +74,18 @@ function UploadPage() {
 
     try {
       setProgress(5);
-      // 1. upload video directly to Supabase Storage `media` bucket
+      // 1. upload video directly to the public video bucket
       const ext = (file.name.split(".").pop() || "mp4").toLowerCase().replace(/[^a-z0-9]/g, "");
       const folder = isShort ? "shorts" : "videos";
-      const videoPath = `${folder}/${u.user.id}/${crypto.randomUUID()}.${ext}`;
-      const { error: upErr } = await supabase.storage.from("media").upload(videoPath, file, {
+      const videoPath = `${u.user.id}/${folder}/${crypto.randomUUID()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from("videos").upload(videoPath, file, {
         contentType: file.type || "video/mp4",
         cacheControl: "3600",
         upsert: false,
       });
       if (upErr) throw upErr;
       setProgress(70);
-      const { data: pub } = supabase.storage.from("media").getPublicUrl(videoPath);
+      const { data: pub } = supabase.storage.from("videos").getPublicUrl(videoPath);
       const playbackUrl = pub.publicUrl;
 
       // 2. thumbnail
@@ -100,10 +100,10 @@ function UploadPage() {
         } catch (e) { console.warn("auto-thumb failed", e); }
       }
       if (thumbBlob) {
-        const tPath = `thumbs/${u.user.id}/${Date.now()}.${thumbExt}`;
-        const { error: tErr } = await supabase.storage.from("media").upload(tPath, thumbBlob, { upsert: false, contentType: thumbType });
+        const tPath = `${u.user.id}/thumbs/${Date.now()}.${thumbExt}`;
+        const { error: tErr } = await supabase.storage.from("thumbnails").upload(tPath, thumbBlob, { upsert: false, contentType: thumbType });
         if (!tErr) {
-          const { data: tPub } = supabase.storage.from("media").getPublicUrl(tPath);
+          const { data: tPub } = supabase.storage.from("thumbnails").getPublicUrl(tPath);
           thumb = tPub.publicUrl;
         }
       }
