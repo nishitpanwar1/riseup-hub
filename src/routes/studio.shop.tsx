@@ -173,16 +173,16 @@ function ProductForm({ gateways, editing, onClose, onSaved }: { gateways: any[];
       let coverUrl = editing?.cover_url ?? null;
       if (coverFile) {
         const ext = coverFile.name.split(".").pop() || "jpg";
-        const path = `covers/${user.id}/${Date.now()}.${ext}`;
-        const { error } = await supabase.storage.from("media").upload(path, coverFile, { contentType: coverFile.type });
+        const path = `${user.id}/product-covers/${Date.now()}.${ext}`;
+        const { error } = await supabase.storage.from("thumbnails").upload(path, coverFile, { contentType: coverFile.type });
         if (error) throw error;
-        coverUrl = supabase.storage.from("media").getPublicUrl(path).data.publicUrl;
+        coverUrl = supabase.storage.from("thumbnails").getPublicUrl(path).data.publicUrl;
       }
       let filePath: string | null = editing?.file_path ?? null;
       if (productFile) {
         const ext = productFile.name.split(".").pop() || "bin";
-        filePath = `${user.id}/${crypto.randomUUID()}.${ext}`;
-        const { error } = await supabase.storage.from("product_files").upload(filePath, productFile, { contentType: productFile.type });
+        filePath = `${user.id}/products/${crypto.randomUUID()}.${ext}`;
+        const { error } = await supabase.storage.from("product-files").upload(filePath, productFile, { contentType: productFile.type });
         if (error) throw error;
       }
 
