@@ -68,6 +68,78 @@ export type Database = {
           },
         ]
       }
+      digital_products: {
+        Row: {
+          category: string | null
+          cover_url: string | null
+          created_at: string
+          currency: string
+          description: string | null
+          external_buy_url: string | null
+          file_path: string | null
+          id: string
+          payment_gateway_id: string | null
+          price_cents: number
+          sold_count: number
+          status: string
+          tags: string[]
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category?: string | null
+          cover_url?: string | null
+          created_at?: string
+          currency?: string
+          description?: string | null
+          external_buy_url?: string | null
+          file_path?: string | null
+          id?: string
+          payment_gateway_id?: string | null
+          price_cents?: number
+          sold_count?: number
+          status?: string
+          tags?: string[]
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string | null
+          cover_url?: string | null
+          created_at?: string
+          currency?: string
+          description?: string | null
+          external_buy_url?: string | null
+          file_path?: string | null
+          id?: string
+          payment_gateway_id?: string | null
+          price_cents?: number
+          sold_count?: number
+          status?: string
+          tags?: string[]
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "digital_products_payment_gateway_id_fkey"
+            columns: ["payment_gateway_id"]
+            isOneToOne: false
+            referencedRelation: "user_payment_gateways"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "digital_products_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       follows: {
         Row: {
           created_at: string | null
@@ -139,6 +211,67 @@ export type Database = {
           {
             foreignKeyName: "notifications_user_id_fkey"
             columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_purchases: {
+        Row: {
+          amount_cents: number
+          buyer_id: string | null
+          created_at: string
+          currency: string
+          id: string
+          metadata: Json
+          product_id: string
+          seller_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          amount_cents?: number
+          buyer_id?: string | null
+          created_at?: string
+          currency?: string
+          id?: string
+          metadata?: Json
+          product_id: string
+          seller_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          amount_cents?: number
+          buyer_id?: string | null
+          created_at?: string
+          currency?: string
+          id?: string
+          metadata?: Json
+          product_id?: string
+          seller_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_purchases_buyer_id_fkey"
+            columns: ["buyer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_purchases_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "digital_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_purchases_seller_id_fkey"
+            columns: ["seller_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -397,6 +530,47 @@ export type Database = {
             foreignKeyName: "user_goals_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_payment_gateways: {
+        Row: {
+          account_identifier: string
+          created_at: string
+          display_name: string | null
+          id: string
+          is_active: boolean
+          provider: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_identifier: string
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          is_active?: boolean
+          provider: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_identifier?: string
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          is_active?: boolean
+          provider?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_payment_gateways_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
