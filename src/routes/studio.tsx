@@ -1,4 +1,4 @@
-import { createFileRoute, Link, redirect } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, redirect, useRouterState } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
@@ -13,10 +13,16 @@ export const Route = createFileRoute("/studio")({
     const { data } = await supabase.auth.getSession();
     if (!data.session) throw redirect({ to: "/auth" });
   },
-  component: StudioPage,
+  component: StudioShell,
 });
 
 const CATS = ["discipline", "fitness", "study", "entrepreneur", "mindset", "finance", "morning", "sports"];
+
+function StudioShell() {
+  const routerState = useRouterState();
+  if (routerState.location.pathname !== "/studio") return <Outlet />;
+  return <StudioPage />;
+}
 
 function StudioPage() {
   const { user } = useAuth();
