@@ -52,6 +52,12 @@ function UploadPage() {
     if (!f) return;
     try {
       const p = await probeVideo(f);
+      const playable = await canRenderVideoFrame(f);
+      if (!playable) {
+        toast.error("This video codec will not play in browsers. Export as H.264 MP4 and upload again.");
+        setFile(null);
+        return;
+      }
       setProbe(p);
     } catch {
       toast.error("Could not read video metadata");
@@ -99,6 +105,7 @@ function UploadPage() {
           if (auto) { thumbBlob = auto; thumbExt = "jpg"; thumbType = "image/jpeg"; }
         } catch (e) { console.warn("auto-thumb failed", e); }
       }
+      if (!thumbBlob) throw new Error("Could not auto-generate a thumbnail. Please upload a browser-playable H.264 MP4 or add a cover image.");
       if (thumbBlob) {
         const tPath = `${u.user.id}/thumbs/${Date.now()}.${thumbExt}`;
         const { error: tErr } = await supabase.storage.from("thumbnails").upload(tPath, thumbBlob, { upsert: false, contentType: thumbType });
@@ -246,6 +253,21 @@ function probeVideo(file: File): Promise<Probe> {
       else resolve(out);
     };
     v.onerror = () => { URL.revokeObjectURL(url); reject(new Error("video read failed")); };
+    v.src = url;
+  });
+}
+
+function canRenderVideoFrame(file: File): Promise<boolean> {
+  return new Promise((resolve) => {
+    const v = document.createElement("video");
+    const url = URL.createObjectURL(file);
+    const timeout = window.setTimeout(() => { cleanup(); resolve(false); }, 5000);
+    const cleanup = () => { window.clearTimeout(timeout); URL.revokeObjectURL(url); };
+    v.muted = true;
+    v.playsInline = true;
+    v.preload = "auto";
+    v.onloadeddata = () => { cleanup(); resolve(v.videoWidth > 0 && v.videoHeight > 0); };
+    v.onerror = () => { cleanup(); resolve(false); };
     v.src = url;
   });
 }
