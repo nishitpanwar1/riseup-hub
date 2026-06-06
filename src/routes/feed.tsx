@@ -235,6 +235,8 @@ function FeedPage() {
               ))}
             </div>
           )}
+        </aside>
+
 
         {/* CENTER */}
         <main>
