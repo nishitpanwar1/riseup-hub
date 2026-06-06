@@ -63,20 +63,34 @@ function FeedPage() {
     return () => { supabase.removeChannel(ch); };
   }, [qc]);
 
-  // base videos query
+  // base videos query — long-form only; shorts live on /shorts
   const { data: videos = [], isLoading } = useQuery({
     queryKey: ["feed", cat],
     queryFn: async () => {
       let qb = supabase
         .from("videos")
-        .select("id, title, description, category, video_url, thumbnail_url, duration, like_count, view_count, tags, created_at, profiles(username, display_name, avatar_url)")
+        .select("id, title, description, category, video_url, thumbnail_url, duration, like_count, view_count, tags, created_at, is_short, profiles(username, display_name, avatar_url)")
         .eq("status", "active")
+        .eq("is_short", false)
         .order("created_at", { ascending: false })
         .limit(200);
       if (cat === "trending") qb = qb.order("view_count", { ascending: false });
       else if (cat !== "all") qb = qb.eq("category", cat);
       const { data, error } = await qb;
       if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  // subscribed channels for the sidebar
+  const { data: subscribed = [] } = useQuery({
+    queryKey: ["subscribed", user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data: follows } = await supabase.from("follows").select("following_id").eq("follower_id", user!.id).limit(20);
+      const ids = (follows ?? []).map((f: any) => f.following_id);
+      if (ids.length === 0) return [];
+      const { data } = await supabase.from("profiles").select("id, username, display_name").in("id", ids);
       return data ?? [];
     },
   });
@@ -196,13 +210,33 @@ function FeedPage() {
           </div>
 
           <div className="card-rise p-2">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary px-3 pt-2 pb-1">You</div>
+            <div className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary px-3 pt-2 pb-1">Library</div>
             <SideLink to="/$username" params={user ? { username: myRank?.username ?? "" } : undefined} icon={<UserIcon className="w-5 h-5" />} label="Profile" disabled={!myRank?.username} />
             <SideBtn active={view === "history"} onClick={() => setSearch({ view: "history" })} icon={<HistoryIcon className="w-5 h-5" />} label="History" disabled={!user} />
             <SideBtn active={view === "liked"} onClick={() => setSearch({ view: "liked" })} icon={<Heart className="w-5 h-5" />} label="Liked" disabled={!user} />
-            <SideBtn active={view === "later"} onClick={() => setSearch({ view: "later" })} icon={<Clock className="w-5 h-5" />} label="Watch Later" disabled={!user} />
+            <SideBtn active={view === "later"} onClick={() => setSearch({ view: "later" })} icon={<Clock className="w-5 h-5" />} label="Saved" disabled={!user} />
           </div>
+
+          {user && subscribed.length > 0 && (
+            <div className="card-rise p-2">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary px-3 pt-2 pb-1">Subscribed</div>
+              {subscribed.map((s: any) => (
+                <Link
+                  key={s.id}
+                  to="/$username"
+                  params={{ username: s.username }}
+                  className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-semibold text-text-secondary hover:text-text-primary hover:bg-bg-surface/60"
+                >
+                  <span className="w-6 h-6 rounded-full bg-brand-purple flex items-center justify-center text-[10px] font-bold">
+                    {(s.display_name ?? s.username).slice(0,2).toUpperCase()}
+                  </span>
+                  <span className="truncate">{s.display_name ?? s.username}</span>
+                </Link>
+              ))}
+            </div>
+          )}
         </aside>
+
 
         {/* CENTER */}
         <main>

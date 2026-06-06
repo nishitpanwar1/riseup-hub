@@ -33,6 +33,14 @@ function WatchPage() {
     },
   });
 
+  // if the video is a short, send the user to the shorts feed instead
+  useEffect(() => {
+    if (video?.is_short) {
+      try { sessionStorage.setItem("riseup:shorts:active", video.id); } catch {}
+      nav({ to: "/shorts" });
+    }
+  }, [video, nav]);
+
   useEffect(() => {
     const ch = supabase
       .channel(`watch-${id}`)
