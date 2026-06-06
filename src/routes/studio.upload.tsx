@@ -81,16 +81,14 @@ function UploadPage() {
 
     try {
       setProgress(5);
-      // 1. upload video directly to the public video bucket
+      // 1. upload video directly to the public video bucket with real progress.
+      // The SDK upload has no progress callback, so the UI looked stuck at 5% during large uploads.
       const ext = (file.name.split(".").pop() || "mp4").toLowerCase().replace(/[^a-z0-9]/g, "");
       const folder = isShort ? "shorts" : "videos";
       const videoPath = `${u.user.id}/${folder}/${crypto.randomUUID()}.${ext}`;
-      const { error: upErr } = await supabase.storage.from("videos").upload(videoPath, file, {
-        contentType: file.type || "video/mp4",
-        cacheControl: "3600",
-        upsert: false,
+      await uploadCloudStorageWithProgress("videos", videoPath, file, file.type || "video/mp4", (pct) => {
+        setProgress(Math.max(6, Math.min(70, Math.round(6 + pct * 0.64))));
       });
-      if (upErr) throw upErr;
       setProgress(70);
       const { data: pub } = supabase.storage.from("videos").getPublicUrl(videoPath);
       const playbackUrl = pub.publicUrl;
@@ -240,6 +238,41 @@ function Field({ label, children, error }: { label: string; children: React.Reac
       {error && <span className="text-xs text-accent-red mt-1 block">{error}</span>}
     </label>
   );
+}
+
+async function uploadCloudStorageWithProgress(bucket: string, path: string, file: File, contentType: string, onProgress: (pct: number) => void) {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) throw new Error("Sign in again before uploading.");
+  const baseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  if (!baseUrl || !publishableKey) throw new Error("Upload service is not configured.");
+  const encodedPath = path.split("/").map(encodeURIComponent).join("/");
+  const uploadUrl = `${baseUrl}/storage/v1/object/${bucket}/${encodedPath}`;
+
+  return new Promise<void>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", uploadUrl);
+    xhr.timeout = 30 * 60 * 1000;
+    xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+    xhr.setRequestHeader("apikey", publishableKey);
+    xhr.setRequestHeader("x-upsert", "false");
+    xhr.setRequestHeader("Content-Type", contentType);
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && event.total > 0) onProgress((event.loaded / event.total) * 100);
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        onProgress(100);
+        resolve();
+      } else {
+        reject(new Error(xhr.responseText || `Video upload failed with status ${xhr.status}`));
+      }
+    };
+    xhr.onerror = () => reject(new Error("Video upload failed. Please check your connection and try again."));
+    xhr.ontimeout = () => reject(new Error("Video upload timed out. Try a smaller MP4 or a stronger connection."));
+    xhr.send(file);
+  });
 }
 
 function probeVideo(file: File): Promise<Probe> {
