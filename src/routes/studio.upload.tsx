@@ -244,6 +244,29 @@ function Field({ label, children, error }: { label: string; children: React.Reac
   );
 }
 
+function uploadWithProgress(uploadUrl: string, file: File, contentType: string, onProgress: (pct: number) => void) {
+  return new Promise<void>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("PUT", uploadUrl);
+    xhr.timeout = 30 * 60 * 1000;
+    xhr.setRequestHeader("Content-Type", contentType);
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && event.total > 0) onProgress((event.loaded / event.total) * 100);
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        onProgress(100);
+        resolve();
+      } else {
+        reject(new Error(xhr.responseText || `Video upload failed with status ${xhr.status}`));
+      }
+    };
+    xhr.onerror = () => reject(new Error("Video upload failed. Please check your connection and try again."));
+    xhr.ontimeout = () => reject(new Error("Video upload timed out. Try a smaller MP4 or a stronger connection."));
+    xhr.send(file);
+  });
+}
+
 function probeVideo(file: File): Promise<Probe> {
   return new Promise((resolve, reject) => {
     const v = document.createElement("video");
