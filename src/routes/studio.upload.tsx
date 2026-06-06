@@ -252,7 +252,7 @@ async function uploadCloudStorageWithProgress(bucket: string, path: string, file
 
   return new Promise<void>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open("PUT", uploadUrl);
+    xhr.open("POST", uploadUrl);
     xhr.timeout = 30 * 60 * 1000;
     xhr.setRequestHeader("Authorization", `Bearer ${token}`);
     xhr.setRequestHeader("apikey", publishableKey);
