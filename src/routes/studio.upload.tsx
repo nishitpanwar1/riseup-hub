@@ -11,12 +11,13 @@ import { supabase } from "@/integrations/supabase/client";
 type Search = { type?: "short" | "long" };
 
 export const Route = createFileRoute("/studio/upload")({
+  ssr: false,
   validateSearch: (s: Record<string, unknown>): Search => ({
     type: s.type === "long" ? "long" : s.type === "short" ? "short" : undefined,
   }),
   beforeLoad: async () => {
-    const { data } = await supabase.auth.getSession();
-    if (!data.session) throw redirect({ to: "/auth" });
+    const { data } = await supabase.auth.getUser();
+    if (!data.user) throw redirect({ to: "/auth" });
   },
   component: UploadPage,
 });
