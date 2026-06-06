@@ -7,6 +7,7 @@ import toast from "react-hot-toast";
 import { Upload, Film, Zap, Clapperboard } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { supabase } from "@/integrations/supabase/client";
+import { getStorjUploadUrl } from "@/lib/upload.functions";
 
 type Search = { type?: "short" | "long" };
 
@@ -81,19 +82,20 @@ function UploadPage() {
 
     try {
       setProgress(5);
-      // 1. upload video directly to the public video bucket
-      const ext = (file.name.split(".").pop() || "mp4").toLowerCase().replace(/[^a-z0-9]/g, "");
-      const folder = isShort ? "shorts" : "videos";
-      const videoPath = `${u.user.id}/${folder}/${crypto.randomUUID()}.${ext}`;
-      const { error: upErr } = await supabase.storage.from("videos").upload(videoPath, file, {
-        contentType: file.type || "video/mp4",
-        cacheControl: "3600",
-        upsert: false,
+      // 1. upload video straight to object storage with real progress.
+      // The previous browser storage call could sit at 5% for large videos with no progress signal.
+      const signed = await getStorjUploadUrl({
+        data: {
+          filename: file.name,
+          fileType: file.type || "video/mp4",
+          folder: `${u.user.id}/${isShort ? "shorts" : "videos"}`,
+        },
       });
-      if (upErr) throw upErr;
+      const playbackUrl = signed.playbackUrl;
+      await uploadWithProgress(signed.uploadUrl, file, file.type || "video/mp4", (pct) => {
+        setProgress(Math.max(6, Math.min(70, Math.round(6 + pct * 0.64))));
+      });
       setProgress(70);
-      const { data: pub } = supabase.storage.from("videos").getPublicUrl(videoPath);
-      const playbackUrl = pub.publicUrl;
 
       // 2. thumbnail
       let thumb = `https://placehold.co/${isShort ? "405x720" : "720x405"}/141414/FF6B35.png?text=${encodeURIComponent(vals.title)}`;
