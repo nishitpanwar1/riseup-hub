@@ -86,13 +86,6 @@ function UploadPage() {
       const ext = (file.name.split(".").pop() || "mp4").toLowerCase().replace(/[^a-z0-9]/g, "");
       const folder = isShort ? "shorts" : "videos";
       const videoPath = `${u.user.id}/${folder}/${crypto.randomUUID()}.${ext}`;
-      const signed = await getStorjUploadUrl({
-        data: {
-          filename: file.name,
-          fileType: file.type || "video/mp4",
-          folder: `${u.user.id}/${isShort ? "shorts" : "videos"}`,
-        },
-      });
       await uploadCloudStorageWithProgress("videos", videoPath, file, file.type || "video/mp4", (pct) => {
         setProgress(Math.max(6, Math.min(70, Math.round(6 + pct * 0.64))));
       });
@@ -247,11 +240,23 @@ function Field({ label, children, error }: { label: string; children: React.Reac
   );
 }
 
-function uploadWithProgress(uploadUrl: string, file: File, contentType: string, onProgress: (pct: number) => void) {
+async function uploadCloudStorageWithProgress(bucket: string, path: string, file: File, contentType: string, onProgress: (pct: number) => void) {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) throw new Error("Sign in again before uploading.");
+  const baseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  if (!baseUrl || !publishableKey) throw new Error("Upload service is not configured.");
+  const encodedPath = path.split("/").map(encodeURIComponent).join("/");
+  const uploadUrl = `${baseUrl}/storage/v1/object/${bucket}/${encodedPath}`;
+
   return new Promise<void>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("PUT", uploadUrl);
     xhr.timeout = 30 * 60 * 1000;
+    xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+    xhr.setRequestHeader("apikey", publishableKey);
+    xhr.setRequestHeader("x-upsert", "false");
     xhr.setRequestHeader("Content-Type", contentType);
     xhr.upload.onprogress = (event) => {
       if (event.lengthComputable && event.total > 0) onProgress((event.loaded / event.total) * 100);
