@@ -63,20 +63,34 @@ function FeedPage() {
     return () => { supabase.removeChannel(ch); };
   }, [qc]);
 
-  // base videos query
+  // base videos query — long-form only; shorts live on /shorts
   const { data: videos = [], isLoading } = useQuery({
     queryKey: ["feed", cat],
     queryFn: async () => {
       let qb = supabase
         .from("videos")
-        .select("id, title, description, category, video_url, thumbnail_url, duration, like_count, view_count, tags, created_at, profiles(username, display_name, avatar_url)")
+        .select("id, title, description, category, video_url, thumbnail_url, duration, like_count, view_count, tags, created_at, is_short, profiles(username, display_name, avatar_url)")
         .eq("status", "active")
+        .eq("is_short", false)
         .order("created_at", { ascending: false })
         .limit(200);
       if (cat === "trending") qb = qb.order("view_count", { ascending: false });
       else if (cat !== "all") qb = qb.eq("category", cat);
       const { data, error } = await qb;
       if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  // subscribed channels for the sidebar
+  const { data: subscribed = [] } = useQuery({
+    queryKey: ["subscribed", user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data: follows } = await supabase.from("follows").select("following_id").eq("follower_id", user!.id).limit(20);
+      const ids = (follows ?? []).map((f: any) => f.following_id);
+      if (ids.length === 0) return [];
+      const { data } = await supabase.from("profiles").select("id, username, display_name").in("id", ids);
       return data ?? [];
     },
   });
