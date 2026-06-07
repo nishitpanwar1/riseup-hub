@@ -70,6 +70,8 @@ export type Database = {
       }
       digital_products: {
         Row: {
+          accepts_money: boolean
+          accepts_tokens: boolean
           category: string | null
           cover_url: string | null
           created_at: string
@@ -84,10 +86,13 @@ export type Database = {
           status: string
           tags: string[]
           title: string
+          token_price: number | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          accepts_money?: boolean
+          accepts_tokens?: boolean
           category?: string | null
           cover_url?: string | null
           created_at?: string
@@ -102,10 +107,13 @@ export type Database = {
           status?: string
           tags?: string[]
           title: string
+          token_price?: number | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          accepts_money?: boolean
+          accepts_tokens?: boolean
           category?: string | null
           cover_url?: string | null
           created_at?: string
@@ -120,6 +128,7 @@ export type Database = {
           status?: string
           tags?: string[]
           title?: string
+          token_price?: number | null
           updated_at?: string
           user_id?: string
         }
@@ -855,6 +864,13 @@ export type Database = {
           current_streak: number
           longest_streak: number
           total_watch_days: number
+        }[]
+      }
+      redeem_product_with_tokens: {
+        Args: { _product_id: string }
+        Returns: {
+          purchase_id: string
+          remaining_balance: number
         }[]
       }
     }

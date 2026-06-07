@@ -158,8 +158,11 @@ function ProductForm({ gateways, editing, onClose, onSaved }: { gateways: any[];
   const { user } = useAuth();
   const [title, setTitle] = useState(editing?.title ?? "");
   const [description, setDescription] = useState(editing?.description ?? "");
+  const [acceptsMoney, setAcceptsMoney] = useState<boolean>(editing?.accepts_money ?? true);
+  const [acceptsTokens, setAcceptsTokens] = useState<boolean>(editing?.accepts_tokens ?? false);
   const [price, setPrice] = useState(editing ? String(editing.price_cents / 100) : "9.99");
   const [currency, setCurrency] = useState(editing?.currency ?? "USD");
+  const [tokenPrice, setTokenPrice] = useState<string>(editing?.token_price ? String(editing.token_price) : "100");
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [productFile, setProductFile] = useState<File | null>(null);
   const [gatewayId, setGatewayId] = useState<string>(editing?.payment_gateway_id ?? gateways[0]?.id ?? "");
@@ -169,6 +172,8 @@ function ProductForm({ gateways, editing, onClose, onSaved }: { gateways: any[];
   const handleSave = async () => {
     if (!user) return;
     if (!title.trim()) return toast.error("Title required");
+    if (!acceptsMoney && !acceptsTokens) return toast.error("Pick at least one payment method");
+    if (acceptsTokens && (!tokenPrice || parseInt(tokenPrice, 10) <= 0)) return toast.error("Set a token price");
     setSaving(true);
     try {
       let coverUrl = editing?.cover_url ?? null;
@@ -191,8 +196,11 @@ function ProductForm({ gateways, editing, onClose, onSaved }: { gateways: any[];
         user_id: user.id,
         title: title.trim(),
         description: description.trim() || null,
-        price_cents: Math.round(parseFloat(price || "0") * 100),
+        price_cents: acceptsMoney ? Math.round(parseFloat(price || "0") * 100) : 0,
         currency: currency.toUpperCase(),
+        accepts_money: acceptsMoney,
+        accepts_tokens: acceptsTokens,
+        token_price: acceptsTokens ? parseInt(tokenPrice, 10) : null,
         cover_url: coverUrl,
         file_path: filePath,
         external_buy_url: externalUrl.trim() || null,
@@ -221,10 +229,31 @@ function ProductForm({ gateways, editing, onClose, onSaved }: { gateways: any[];
       </div>
       <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Title" className="w-full px-3 py-2" />
       <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Description" className="w-full px-3 py-2 min-h-[60px]" />
-      <div className="grid grid-cols-3 gap-2">
-        <input value={price} onChange={e => setPrice(e.target.value)} placeholder="9.99" className="px-3 py-2 col-span-2" type="number" step="0.01" min="0" />
-        <input value={currency} onChange={e => setCurrency(e.target.value)} placeholder="USD" className="px-3 py-2 uppercase" maxLength={3} />
+
+      <div className="grid grid-cols-2 gap-2">
+        <label className={`flex items-center gap-2 p-3 rounded-lg border-2 cursor-pointer ${acceptsMoney ? "border-brand-orange bg-brand-orange/10" : "border-rise bg-bg-primary"}`}>
+          <input type="checkbox" checked={acceptsMoney} onChange={e => setAcceptsMoney(e.target.checked)} />
+          <span className="text-sm font-bold uppercase">Accept money</span>
+        </label>
+        <label className={`flex items-center gap-2 p-3 rounded-lg border-2 cursor-pointer ${acceptsTokens ? "border-brand-purple bg-brand-purple/10" : "border-rise bg-bg-primary"}`}>
+          <input type="checkbox" checked={acceptsTokens} onChange={e => setAcceptsTokens(e.target.checked)} />
+          <span className="text-sm font-bold uppercase">Accept tokens</span>
+        </label>
       </div>
+
+      {acceptsMoney && (
+        <div className="grid grid-cols-3 gap-2">
+          <input value={price} onChange={e => setPrice(e.target.value)} placeholder="9.99" className="px-3 py-2 col-span-2" type="number" step="0.01" min="0" />
+          <input value={currency} onChange={e => setCurrency(e.target.value)} placeholder="USD" className="px-3 py-2 uppercase" maxLength={3} />
+        </div>
+      )}
+      {acceptsTokens && (
+        <label className="block">
+          <span className="text-xs uppercase text-text-secondary">Token price (any amount you want)</span>
+          <input value={tokenPrice} onChange={e => setTokenPrice(e.target.value)} placeholder="100" className="w-full px-3 py-2 mt-1" type="number" min="1" step="1" />
+        </label>
+      )}
+
       <label className="block">
         <span className="text-xs uppercase text-text-secondary">Cover image</span>
         <input type="file" accept="image/*" onChange={e => setCoverFile(e.target.files?.[0] ?? null)} className="mt-1 block text-sm" />
@@ -233,14 +262,18 @@ function ProductForm({ gateways, editing, onClose, onSaved }: { gateways: any[];
         <span className="text-xs uppercase text-text-secondary">Product file (optional — for delivery after purchase)</span>
         <input type="file" onChange={e => setProductFile(e.target.files?.[0] ?? null)} className="mt-1 block text-sm" />
       </label>
-      <label className="block">
-        <span className="text-xs uppercase text-text-secondary">Payment gateway</span>
-        <select value={gatewayId} onChange={e => setGatewayId(e.target.value)} className="w-full px-3 py-2 mt-1">
-          <option value="">— None —</option>
-          {gateways.map(g => <option key={g.id} value={g.id}>{PROVIDERS.find(p => p.id === g.provider)?.label} · {g.account_identifier}</option>)}
-        </select>
-      </label>
-      <input value={externalUrl} onChange={e => setExternalUrl(e.target.value)} placeholder="Direct buy URL (Stripe link, Gumroad, etc.)" className="w-full px-3 py-2" />
+      {acceptsMoney && (
+        <>
+          <label className="block">
+            <span className="text-xs uppercase text-text-secondary">Payment gateway</span>
+            <select value={gatewayId} onChange={e => setGatewayId(e.target.value)} className="w-full px-3 py-2 mt-1">
+              <option value="">— None —</option>
+              {gateways.map(g => <option key={g.id} value={g.id}>{PROVIDERS.find(p => p.id === g.provider)?.label} · {g.account_identifier}</option>)}
+            </select>
+          </label>
+          <input value={externalUrl} onChange={e => setExternalUrl(e.target.value)} placeholder="Direct buy URL (Stripe link, Gumroad, etc.)" className="w-full px-3 py-2" />
+        </>
+      )}
       <button onClick={handleSave} disabled={saving} className="btn-primary w-full inline-flex items-center justify-center gap-2"><Save className="w-4 h-4" /> {saving ? "Saving…" : "Save product"}</button>
     </div>
   );

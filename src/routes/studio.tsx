@@ -2,7 +2,7 @@ import { createFileRoute, Link, Outlet, redirect, useRouterState } from "@tansta
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
-import { BarChart3, Eye, Film, Heart, MessageCircle, Save, Upload, Users } from "lucide-react";
+import { BarChart3, Eye, Film, Heart, MessageCircle, Save, Upload, Users, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { AppHeader } from "@/components/AppHeader";
 import { supabase } from "@/integrations/supabase/client";
@@ -66,6 +66,21 @@ function StudioPage() {
     qc.invalidateQueries({ queryKey: ["studio", user?.id] });
   };
 
+  const deleteVideo = async (v: any) => {
+    if (!confirm(`Delete "${v.title}"? This cannot be undone.`)) return;
+    const { error } = await supabase.from("videos").delete().eq("id", v.id).eq("user_id", user!.id);
+    if (error) return toast.error(error.message);
+    // best-effort storage cleanup (ignore failures)
+    try {
+      const url = v.video_url as string;
+      const marker = "/storage/v1/object/public/videos/";
+      const idx = url.indexOf(marker);
+      if (idx !== -1) await supabase.storage.from("videos").remove([url.slice(idx + marker.length)]);
+    } catch {}
+    toast.success("Deleted");
+    qc.invalidateQueries({ queryKey: ["studio", user?.id] });
+  };
+
   return (
     <div className="min-h-screen bg-bg-primary text-text-primary">
       <AppHeader />
@@ -79,7 +94,7 @@ function StudioPage() {
           <Stat icon={<BarChart3 />} label="Watch hours" value={watchHours} /><Stat icon={<Heart />} label="Likes" value={totals.likes} /><Stat icon={<MessageCircle />} label="Comments" value={totals.comments} />
         </section>
         <section className="card-rise p-5"><h2 className="text-sm font-black uppercase mb-4">Views · last 7 days</h2><div className="h-48"><ResponsiveContainer><AreaChart data={chart}><XAxis dataKey="day" stroke="#71717A" /><Tooltip contentStyle={{ background: "#141414", border: "1px solid #262626" }} /><Area dataKey="views" stroke="#FF6B35" fill="#FF6B3540" /></AreaChart></ResponsiveContainer></div></section>
-        <section className="card-rise overflow-hidden"><div className="p-5 border-b border-rise flex items-center justify-between"><h2 className="font-black uppercase">Content</h2><span className="text-xs text-text-tertiary font-stat">{videos.filter((v: any) => v.is_short).length} shorts · {videos.filter((v: any) => !v.is_short).length} videos</span></div>{videos.map((v: any) => <div key={v.id} className="p-4 border-b border-rise flex gap-4 items-center"><img src={v.thumbnail_url} alt={v.title} className="w-24 aspect-video object-cover rounded-md bg-bg-surface" /><div className="flex-1 min-w-0"><p className="font-bold truncate">{v.title}</p><p className="text-xs text-text-tertiary font-stat">{v.is_short ? "Short" : "Video"} · {v.view_count ?? 0} views · {v.like_count ?? 0} likes · {v.comment_count ?? 0} comments</p></div><button onClick={() => setEditing({ ...v, tagsText: (v.tags ?? []).join(", ") })} className="btn-ghost py-2 px-4 text-sm">Edit</button></div>)}{videos.length === 0 && <p className="p-10 text-center text-text-tertiary">No uploads yet.</p>}</section>
+        <section className="card-rise overflow-hidden"><div className="p-5 border-b border-rise flex items-center justify-between"><h2 className="font-black uppercase">Content</h2><span className="text-xs text-text-tertiary font-stat">{videos.filter((v: any) => v.is_short).length} shorts · {videos.filter((v: any) => !v.is_short).length} videos</span></div>{videos.map((v: any) => <div key={v.id} className="p-4 border-b border-rise flex gap-4 items-center"><img src={v.thumbnail_url} alt={v.title} className="w-24 aspect-video object-cover rounded-md bg-bg-surface" /><div className="flex-1 min-w-0"><p className="font-bold truncate">{v.title}</p><p className="text-xs text-text-tertiary font-stat">{v.is_short ? "Short" : "Video"} · {v.view_count ?? 0} views · {v.like_count ?? 0} likes · {v.comment_count ?? 0} comments</p></div><button onClick={() => setEditing({ ...v, tagsText: (v.tags ?? []).join(", ") })} className="btn-ghost py-2 px-4 text-sm">Edit</button><button onClick={() => deleteVideo(v)} className="p-2 text-text-tertiary hover:text-accent-red" title="Delete"><Trash2 className="w-4 h-4" /></button></div>)}{videos.length === 0 && <p className="p-10 text-center text-text-tertiary">No uploads yet.</p>}</section>
         <section className="card-rise p-5"><h2 className="font-black uppercase mb-3">Rooms Arena</h2><div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">{(data?.rooms ?? []).map((r: any) => <Link key={r.id} to="/rooms/$id" params={{ id: r.id }} className="bg-bg-surface rounded-xl p-4"><p className="font-bold">{r.title}</p><p className="text-xs text-text-tertiary font-stat">{r.member_count ?? 0} members · {r.challenge_days} days</p></Link>)}{(data?.rooms ?? []).length === 0 && <p className="text-text-tertiary">No rooms created yet.</p>}</div></section>
       </main>
       {editing && <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4"><div className="card-rise p-5 w-full max-w-xl space-y-3"><h2 className="font-black uppercase">Edit metadata</h2><input value={editing.title} onChange={(e) => setEditing({ ...editing, title: e.target.value })} className="w-full px-3 py-2.5" /><textarea value={editing.description ?? ""} onChange={(e) => setEditing({ ...editing, description: e.target.value })} className="w-full px-3 py-2.5 min-h-[90px]" /><select value={editing.category} onChange={(e) => setEditing({ ...editing, category: e.target.value })} className="w-full px-3 py-2.5">{CATS.map(c => <option key={c} value={c}>{c}</option>)}</select><input value={editing.tagsText} onChange={(e) => setEditing({ ...editing, tagsText: e.target.value })} placeholder="tags, comma, separated" className="w-full px-3 py-2.5" /><div className="flex gap-2 justify-end"><button onClick={() => setEditing(null)} className="btn-ghost py-2 px-4">Cancel</button><button onClick={saveEdit} className="btn-primary py-2 px-4">Save</button></div></div></div>}
