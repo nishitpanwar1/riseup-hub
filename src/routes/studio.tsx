@@ -2,7 +2,7 @@ import { createFileRoute, Link, Outlet, redirect, useRouterState } from "@tansta
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
-import { BarChart3, Eye, Film, Heart, MessageCircle, Save, Upload, Users } from "lucide-react";
+import { BarChart3, Eye, Film, Heart, MessageCircle, Save, Upload, Users, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { AppHeader } from "@/components/AppHeader";
 import { supabase } from "@/integrations/supabase/client";
