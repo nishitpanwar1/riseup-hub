@@ -66,6 +66,21 @@ function StudioPage() {
     qc.invalidateQueries({ queryKey: ["studio", user?.id] });
   };
 
+  const deleteVideo = async (v: any) => {
+    if (!confirm(`Delete "${v.title}"? This cannot be undone.`)) return;
+    const { error } = await supabase.from("videos").delete().eq("id", v.id).eq("user_id", user!.id);
+    if (error) return toast.error(error.message);
+    // best-effort storage cleanup (ignore failures)
+    try {
+      const url = v.video_url as string;
+      const marker = "/storage/v1/object/public/videos/";
+      const idx = url.indexOf(marker);
+      if (idx !== -1) await supabase.storage.from("videos").remove([url.slice(idx + marker.length)]);
+    } catch {}
+    toast.success("Deleted");
+    qc.invalidateQueries({ queryKey: ["studio", user?.id] });
+  };
+
   return (
     <div className="min-h-screen bg-bg-primary text-text-primary">
       <AppHeader />
