@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.award_upload_tokens() FROM anon, authenticated, public;
