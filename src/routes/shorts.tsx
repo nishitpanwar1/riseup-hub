@@ -188,8 +188,9 @@ function ShortsPage() {
       >
         {items.map((s, i) => {
           const activeIdx = items.findIndex(x => x.id === activeId);
-          // Only mount the active video element; neighbors show poster img only.
-          const mount = activeIdx === -1 ? i === 0 : i === activeIdx;
+          const anchor = activeIdx === -1 ? 0 : activeIdx;
+          // Mount active + neighbors so the next short is already buffered (no swipe lag).
+          const mount = Math.abs(i - anchor) <= 1;
           return (
             <ShortItem
               key={s.id}
@@ -287,7 +288,7 @@ function ShortItem({
             loop
             muted={muted}
             playsInline
-            preload={isActive ? "auto" : "none"}
+            preload="auto"
             onClick={handleTap}
             onTimeUpdate={(e) => {
               const v = e.currentTarget;
