@@ -288,7 +288,7 @@ function ShortItem({
             loop
             muted={muted}
             playsInline
-            preload={isActive ? "auto" : "none"}
+            preload="auto"
             onClick={handleTap}
             onTimeUpdate={(e) => {
               const v = e.currentTarget;
