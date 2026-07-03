@@ -1,0 +1,2 @@
+ALTER TABLE public.product_purchases DROP CONSTRAINT IF EXISTS product_purchases_currency_check;
+ALTER TABLE public.product_purchases ADD CONSTRAINT product_purchases_currency_check CHECK (currency = 'TOKENS' OR char_length(currency) = 3);
