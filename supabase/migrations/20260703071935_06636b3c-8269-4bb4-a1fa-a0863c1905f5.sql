@@ -1,0 +1,2 @@
+ALTER TABLE public.product_purchases DROP CONSTRAINT product_purchases_status_check;
+ALTER TABLE public.product_purchases ADD CONSTRAINT product_purchases_status_check CHECK (status = ANY (ARRAY['pending','paid','completed','delivered','refunded','cancelled']));
