@@ -81,39 +81,37 @@ function UploadPage() {
 
     try {
       setProgress(5);
+      // Start thumbnail generation in parallel with the video upload (was serial and could hang).
+      const thumbPromise: Promise<{ blob: Blob; ext: string; type: string } | null> = thumbFile
+        ? Promise.resolve({ blob: thumbFile, ext: (thumbFile.name.split(".").pop() || "jpg").toLowerCase(), type: thumbFile.type || "image/jpeg" })
+        : captureVideoThumbnail(file).then(b => (b ? { blob: b, ext: "jpg", type: "image/jpeg" } : null)).catch(() => null);
+
       // 1. upload video directly to the public video bucket with real progress.
-      // The SDK upload has no progress callback, so the UI looked stuck at 5% during large uploads.
       const ext = (file.name.split(".").pop() || "mp4").toLowerCase().replace(/[^a-z0-9]/g, "");
       const folder = isShort ? "shorts" : "videos";
       const videoPath = `${u.user.id}/${folder}/${crypto.randomUUID()}.${ext}`;
       await uploadCloudStorageWithProgress("videos", videoPath, file, file.type || "video/mp4", (pct) => {
-        setProgress(Math.max(6, Math.min(70, Math.round(6 + pct * 0.64))));
+        setProgress(Math.max(6, Math.min(78, Math.round(6 + pct * 0.72))));
       });
-      setProgress(70);
+      setProgress(80);
       const { data: pub } = supabase.storage.from("videos").getPublicUrl(videoPath);
       const playbackUrl = pub.publicUrl;
 
-      // 2. thumbnail
+      // 2. thumbnail — never blocks the publish; falls back to a generated placeholder.
       let thumb = `https://placehold.co/${isShort ? "405x720" : "720x405"}/141414/FF6B35.png?text=${encodeURIComponent(vals.title)}`;
-      let thumbBlob: Blob | null = thumbFile;
-      let thumbExt = thumbFile ? (thumbFile.name.split(".").pop() || "jpg").toLowerCase() : "jpg";
-      let thumbType = thumbFile?.type || "image/jpeg";
-      if (!thumbBlob) {
+      const t = await thumbPromise;
+      setProgress(85);
+      if (t) {
         try {
-          const auto = await captureVideoThumbnail(file);
-          if (auto) { thumbBlob = auto; thumbExt = "jpg"; thumbType = "image/jpeg"; }
-        } catch (e) { console.warn("auto-thumb failed", e); }
+          const tPath = `${u.user.id}/thumbs/${Date.now()}.${t.ext}`;
+          const { error: tErr } = await supabase.storage.from("thumbnails").upload(tPath, t.blob, { upsert: false, contentType: t.type });
+          if (!tErr) {
+            const { data: tPub } = supabase.storage.from("thumbnails").getPublicUrl(tPath);
+            thumb = tPub.publicUrl;
+          }
+        } catch (e) { console.warn("thumb upload failed", e); }
       }
-      if (!thumbBlob) throw new Error("Could not auto-generate a thumbnail. Please upload a browser-playable H.264 MP4 or add a cover image.");
-      if (thumbBlob) {
-        const tPath = `${u.user.id}/thumbs/${Date.now()}.${thumbExt}`;
-        const { error: tErr } = await supabase.storage.from("thumbnails").upload(tPath, thumbBlob, { upsert: false, contentType: thumbType });
-        if (!tErr) {
-          const { data: tPub } = supabase.storage.from("thumbnails").getPublicUrl(tPath);
-          thumb = tPub.publicUrl;
-        }
-      }
-      setProgress(90);
+      setProgress(92);
 
       const tags = vals.tags?.split(",").map(t => t.trim()).filter(Boolean).slice(0, 5) ?? [];
 
@@ -314,22 +312,32 @@ function captureVideoThumbnail(file: File, seekTo = 1): Promise<Blob | null> {
     v.playsInline = true;
     v.crossOrigin = "anonymous";
     const url = URL.createObjectURL(file);
-    const cleanup = () => URL.revokeObjectURL(url);
+    let done = false;
+    const finish = (b: Blob | null) => {
+      if (done) return;
+      done = true;
+      window.clearTimeout(timer);
+      URL.revokeObjectURL(url);
+      resolve(b);
+    };
+    // Hard timeout so thumbnail capture can never hang the upload.
+    const timer = window.setTimeout(() => finish(null), 8000);
     v.onloadedmetadata = () => {
       v.currentTime = Math.min(seekTo, Math.max(0.1, (v.duration || 1) * 0.1));
     };
     v.onseeked = () => {
       try {
         const w = v.videoWidth, h = v.videoHeight;
+        if (!w || !h) return finish(null);
         const canvas = document.createElement("canvas");
         canvas.width = w; canvas.height = h;
         const ctx = canvas.getContext("2d");
-        if (!ctx) { cleanup(); return resolve(null); }
+        if (!ctx) return finish(null);
         ctx.drawImage(v, 0, 0, w, h);
-        canvas.toBlob((b) => { cleanup(); resolve(b); }, "image/jpeg", 0.85);
-      } catch { cleanup(); resolve(null); }
+        canvas.toBlob((b) => finish(b), "image/jpeg", 0.85);
+      } catch { finish(null); }
     };
-    v.onerror = () => { cleanup(); resolve(null); };
+    v.onerror = () => finish(null);
     v.src = url;
   });
 }
