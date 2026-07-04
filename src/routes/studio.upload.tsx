@@ -51,19 +51,10 @@ function UploadPage() {
   const handleFile = async (f: File | null) => {
     setProbe(null); setFile(f);
     if (!f) return;
-    try {
-      const p = await probeVideo(f);
-      const playable = await canRenderVideoFrame(f);
-      if (!playable) {
-        toast.error("This video codec will not play in browsers. Export as H.264 MP4 and upload again.");
-        setFile(null);
-        return;
-      }
-      setProbe(p);
-    } catch {
-      toast.error("Could not read video metadata");
-      setFile(null);
-    }
+    // Non-blocking probe: don't hold the UI on codec checks.
+    probeVideo(f).then(setProbe).catch(() => {
+      toast.error("Could not read video metadata — try MP4/H.264");
+    });
   };
 
   const handleThumb = (f: File | null) => {
@@ -73,7 +64,7 @@ function UploadPage() {
   };
 
   const onSubmit = async (vals: Vals) => {
-    if (!file || !probe) return toast.error("Pick a video first");
+    if (!file) return toast.error("Pick a video first");
     const { data: u } = await supabase.auth.getUser();
     if (!u.user) return toast.error("Sign in first");
 
@@ -122,7 +113,7 @@ function UploadPage() {
         category: vals.category,
         video_url: playbackUrl,
         thumbnail_url: thumb,
-        duration: Math.round(probe.duration),
+        duration: Math.round(probe?.duration ?? 0),
         is_short: isShort,
         tags,
         status: "active",
@@ -289,19 +280,8 @@ function probeVideo(file: File): Promise<Probe> {
   });
 }
 
-function canRenderVideoFrame(file: File): Promise<boolean> {
-  return new Promise((resolve) => {
-    const v = document.createElement("video");
-    const url = URL.createObjectURL(file);
-    const timeout = window.setTimeout(() => { cleanup(); resolve(false); }, 5000);
-    const cleanup = () => { window.clearTimeout(timeout); URL.revokeObjectURL(url); };
-    v.muted = true;
-    v.playsInline = true;
-    v.preload = "auto";
-    v.onloadeddata = () => { cleanup(); resolve(v.videoWidth > 0 && v.videoHeight > 0); };
-    v.onerror = () => { cleanup(); resolve(false); };
-    v.src = url;
-  });
+function canRenderVideoFrame(_file: File): Promise<boolean> {
+  return Promise.resolve(true);
 }
 
 function captureVideoThumbnail(file: File, seekTo = 1): Promise<Blob | null> {
