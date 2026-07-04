@@ -1,22 +1,19 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { Flame, Upload, LogOut, User as UserIcon, Search, Bell, Settings, BarChart3, ShoppingBag } from "lucide-react";
+import { Flame, Upload, LogOut, User as UserIcon, Search, Bell, Settings } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
+import { useMyProfile } from "@/hooks/use-profile";
 
 export function AppHeader() {
   const { user } = useAuth();
   const nav = useNavigate();
-  const [username, setUsername] = useState<string | null>(null);
+  const { data: profile } = useMyProfile();
+  const username = profile?.username ?? null;
+  const avatarUrl = profile?.avatar_url ?? null;
   const routerState = useRouterState();
   const initialQ = (routerState.location.search as any)?.q ?? "";
   const [q, setQ] = useState<string>(typeof initialQ === "string" ? initialQ : "");
-
-  useEffect(() => {
-    if (!user) { setUsername(null); return; }
-    supabase.from("profiles").select("username").eq("id", user.id).maybeSingle()
-      .then(({ data }) => setUsername(data?.username ?? null));
-  }, [user]);
 
   // debounce search → push to /feed?q=
   useEffect(() => {
@@ -58,12 +55,6 @@ export function AppHeader() {
               <Link to="/studio/upload" className="btn-primary text-sm py-2 px-4 hidden sm:inline-flex items-center gap-2">
                 <Upload className="w-4 h-4" /> Create
               </Link>
-              <Link to="/studio" className="p-2 rounded-lg hover:bg-bg-card hidden sm:inline-flex" title="Studio">
-                <BarChart3 className="w-5 h-5" />
-              </Link>
-              <Link to="/shop" className="p-2 rounded-lg hover:bg-bg-card hidden sm:inline-flex" title="Shop">
-                <ShoppingBag className="w-5 h-5" />
-              </Link>
               <Link to="/notifications" className="p-2 rounded-lg hover:bg-bg-card" title="Notifications">
                 <Bell className="w-5 h-5" />
               </Link>
@@ -71,8 +62,12 @@ export function AppHeader() {
                 <Settings className="w-5 h-5" />
               </Link>
               {username ? (
-                <Link to="/$username" params={{ username }} className="w-9 h-9 rounded-full bg-brand-purple flex items-center justify-center font-bold text-sm">
-                  {username.slice(0, 2).toUpperCase()}
+                <Link to="/$username" params={{ username }} className="w-9 h-9 rounded-full overflow-hidden bg-brand-purple flex items-center justify-center font-bold text-sm shrink-0">
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt={username} className="w-full h-full object-cover" />
+                  ) : (
+                    username.slice(0, 2).toUpperCase()
+                  )}
                 </Link>
               ) : (
                 <span className="w-9 h-9 rounded-full bg-bg-surface flex items-center justify-center"><UserIcon className="w-5 h-5" /></span>
