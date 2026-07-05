@@ -1,19 +1,22 @@
 import { createFileRoute, useNavigate, redirect, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import toast from "react-hot-toast";
-import { Upload, Film, Zap, Clapperboard } from "lucide-react";
+import { Upload, Film, Zap, Clapperboard, Repeat2, X } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { supabase } from "@/integrations/supabase/client";
 
-type Search = { type?: "short" | "long" };
+type Search = { type?: "short" | "long"; remix?: string; title?: string; source?: string };
 
 export const Route = createFileRoute("/studio/upload")({
   ssr: false,
   validateSearch: (s: Record<string, unknown>): Search => ({
     type: s.type === "long" ? "long" : s.type === "short" ? "short" : undefined,
+    remix: typeof s.remix === "string" ? s.remix : undefined,
+    title: typeof s.title === "string" ? s.title : undefined,
+    source: typeof s.source === "string" ? s.source : undefined,
   }),
   beforeLoad: async () => {
     const { data } = await supabase.auth.getUser();
@@ -43,10 +46,23 @@ function UploadPage() {
   const [thumbFile, setThumbFile] = useState<File | null>(null);
   const [thumbPreview, setThumbPreview] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<Vals>({
+  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<Vals>({
     resolver: zodResolver(schema),
     defaultValues: { category: "discipline" },
   });
+
+  // Prefill when arriving from a Remix action
+  useEffect(() => {
+    if (!search.remix || !search.title) return;
+    setMode("short");
+    reset({
+      title: `Remix · ${search.title}`.slice(0, 100),
+      description: search.source ? `🔁 Remix of @${search.source} — original: ${search.title}` : `🔁 Remix — original: ${search.title}`,
+      category: "discipline",
+      tags: "remix",
+    });
+  }, [search.remix, search.title, search.source, reset]);
+
 
   const handleFile = async (f: File | null) => {
     setProbe(null); setFile(f);
