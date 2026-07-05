@@ -226,8 +226,8 @@ function ShortsPage() {
 }
 
 function ShortItem({
-  short, muted, isActive, shouldMount, onVisible, signedIn, registerRef,
-}: { short: Short; muted: boolean; isActive: boolean; shouldMount: boolean; onVisible: () => void; signedIn: boolean; registerRef: (id: string, el: HTMLDivElement | null) => void }) {
+  short, muted, isActive, shouldMount, onVisible, signedIn, registerRef, nav,
+}: { short: Short; muted: boolean; isActive: boolean; shouldMount: boolean; onVisible: () => void; signedIn: boolean; registerRef: (id: string, el: HTMLDivElement | null) => void; nav: ReturnType<typeof useNavigate> }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const progressRef = useRef<HTMLDivElement>(null);
