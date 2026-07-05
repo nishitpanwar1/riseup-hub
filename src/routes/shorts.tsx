@@ -206,6 +206,7 @@ function ShortsPage() {
               onVisible={() => setActiveId(s.id)}
               signedIn={!!user}
               registerRef={registerRef}
+              nav={nav}
             />
           );
         })}
