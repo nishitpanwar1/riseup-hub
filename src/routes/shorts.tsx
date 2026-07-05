@@ -171,13 +171,33 @@ function ShortsPage() {
       >
         <ChevronLeft className="w-6 h-6" />
       </button>
-      <button
-        onClick={() => setMuted(m => !m)}
-        className="absolute top-4 right-4 z-40 w-10 h-10 rounded-full bg-black/50 backdrop-blur flex items-center justify-center text-white"
-        aria-label="Toggle mute"
-      >
-        {muted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
-      </button>
+      <div className="absolute top-4 right-4 z-40 group">
+        <button
+          onClick={() => setMuted(m => !m)}
+          className="w-10 h-10 rounded-full bg-black/50 backdrop-blur flex items-center justify-center text-white"
+          aria-label="Toggle mute"
+        >
+          {muted || volume === 0 ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+        </button>
+        {/* YouTube-style volume slider on hover */}
+        <div className="absolute right-0 top-11 hidden group-hover:flex flex-col items-center bg-black/80 backdrop-blur rounded-full py-3 px-2 w-10">
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.01}
+            value={muted ? 0 : volume}
+            onChange={(e) => {
+              const v = Number(e.target.value);
+              setVolume(v);
+              setMuted(v === 0);
+            }}
+            className="h-24 w-1 accent-brand-orange"
+            style={{ writingMode: "vertical-lr" as any, WebkitAppearance: "slider-vertical" as any, direction: "rtl" }}
+            aria-label="Volume"
+          />
+        </div>
+      </div>
       <button
         onClick={async () => { await supabase.auth.signOut(); nav({ to: "/" }); }}
         className="absolute top-14 right-4 z-40 w-10 h-10 rounded-full bg-black/50 backdrop-blur flex items-center justify-center text-white"
