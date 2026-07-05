@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Heart, Bookmark, Flame, Users, Share2, Play, Volume2, VolumeX, ChevronLeft, LogOut } from "lucide-react";
+import { Heart, MessageCircle, Share2, Repeat2, Flame, Play, Volume2, VolumeX, ChevronLeft, LogOut } from "lucide-react";
 import toast from "react-hot-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
