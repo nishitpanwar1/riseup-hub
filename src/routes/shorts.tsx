@@ -222,6 +222,7 @@ function ShortsPage() {
               key={s.id}
               short={s}
               muted={muted}
+              volume={volume}
               isActive={activeId === s.id}
               shouldMount={mount}
               onVisible={() => setActiveId(s.id)}
