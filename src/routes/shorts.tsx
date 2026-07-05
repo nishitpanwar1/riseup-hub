@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Heart, Bookmark, Flame, Users, Share2, Play, Volume2, VolumeX, ChevronLeft, LogOut } from "lucide-react";
+import { Heart, MessageCircle, Share2, Repeat2, Flame, Play, Volume2, VolumeX, ChevronLeft, LogOut } from "lucide-react";
 import toast from "react-hot-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -105,6 +105,11 @@ function ShortsPage() {
         if (!row) return;
         setItems(prev => prev.map(s => s.id === row.id ? { ...s, like_count: row.like_count, save_count: row.save_count, view_count: row.view_count } : s));
       })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles" }, (payload) => {
+        const row: any = payload.new;
+        if (!row) return;
+        setItems(prev => prev.map(s => s.user_id === row.id && s.profiles ? { ...s, profiles: { ...s.profiles, username: row.username, display_name: row.display_name, avatar_url: row.avatar_url, creator_tier: row.creator_tier } } : s));
+      })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, []);
@@ -201,6 +206,7 @@ function ShortsPage() {
               onVisible={() => setActiveId(s.id)}
               signedIn={!!user}
               registerRef={registerRef}
+              nav={nav}
             />
           );
         })}
@@ -220,8 +226,8 @@ function ShortsPage() {
 }
 
 function ShortItem({
-  short, muted, isActive, shouldMount, onVisible, signedIn, registerRef,
-}: { short: Short; muted: boolean; isActive: boolean; shouldMount: boolean; onVisible: () => void; signedIn: boolean; registerRef: (id: string, el: HTMLDivElement | null) => void }) {
+  short, muted, isActive, shouldMount, onVisible, signedIn, registerRef, nav,
+}: { short: Short; muted: boolean; isActive: boolean; shouldMount: boolean; onVisible: () => void; signedIn: boolean; registerRef: (id: string, el: HTMLDivElement | null) => void; nav: ReturnType<typeof useNavigate> }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const progressRef = useRef<HTMLDivElement>(null);
@@ -310,8 +316,12 @@ function ShortItem({
         <div className="absolute inset-x-0 bottom-0 p-5 pr-20 bg-gradient-to-t from-black/85 via-black/40 to-transparent text-white">
           {short.profiles && (
             <Link to="/$username" params={{ username: short.profiles.username }} className="flex items-center gap-2 mb-3">
-              <div className="w-10 h-10 rounded-full bg-bg-surface border-2 border-brand-purple flex items-center justify-center font-bold">
-                {short.profiles.display_name[0]?.toUpperCase()}
+              <div className="w-10 h-10 rounded-full bg-bg-surface border-2 border-brand-purple flex items-center justify-center font-bold overflow-hidden">
+                {short.profiles.avatar_url ? (
+                  <img src={short.profiles.avatar_url} alt={short.profiles.username} className="w-full h-full object-cover" />
+                ) : (
+                  short.profiles.display_name[0]?.toUpperCase()
+                )}
               </div>
               <div>
                 <div className="font-bold flex items-center gap-1.5">
@@ -327,12 +337,10 @@ function ShortItem({
         </div>
 
         <div className="absolute right-3 bottom-28 z-30 flex flex-col gap-4 items-center text-white">
-          <ActionBtn icon={<Flame className="w-6 h-6 text-brand-orange" />} count={null} onClick={() => toast.success("Streak +1 today")} />
           <ActionBtn icon={<Heart className="w-6 h-6" />} count={short.like_count} onClick={() => like(short.id, signedIn)} />
-          <ActionBtn icon={<Play className="w-6 h-6" />} count={short.view_count} onClick={() => {}} />
-          <ActionBtn icon={<Bookmark className="w-6 h-6" />} count={short.save_count} onClick={() => save(short.id, signedIn)} />
-          <ActionBtn icon={<Users className="w-6 h-6 text-accent-mint" />} count={null} onClick={() => toast("Join the accountability room from the video page", { icon: "🛡️" })} />
+          <ActionBtn icon={<MessageCircle className="w-6 h-6" />} count={null} onClick={() => nav({ to: "/watch/$id", params: { id: short.id } })} />
           <ActionBtn icon={<Share2 className="w-6 h-6" />} count={null} onClick={() => shareShort(short.title)} />
+          <ActionBtn icon={<Repeat2 className="w-6 h-6 text-brand-orange" />} count={null} onClick={() => remix(short.id, signedIn, nav)} />
         </div>
       </div>
     </div>
@@ -362,6 +370,12 @@ async function shareShort(title: string) {
     try { await (navigator as any).share({ title, url }); return; } catch (_e) { /* user cancelled */ }
   }
   try { await navigator.clipboard?.writeText(url); toast.success("Link copied"); } catch (_e) { toast.error("Could not share"); }
+}
+
+function remix(videoId: string, signedIn: boolean, nav: ReturnType<typeof useNavigate>) {
+  if (!signedIn) return toast.error("Sign in to remix");
+  toast.success("Remixing — upload your take");
+  nav({ to: "/studio/upload", search: { remix: videoId } as any });
 }
 
 function ActionBtn({ icon, count, onClick }: { icon: React.ReactNode; count: number | null; onClick: () => void }) {
