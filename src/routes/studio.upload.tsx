@@ -152,6 +152,27 @@ function UploadPage() {
         <h1 className="text-3xl font-black uppercase mb-1">Studio · upload</h1>
         <p className="text-text-secondary mb-6">No size cap · streams directly · auto-thumbnail</p>
 
+        {search.remix && (
+          <div className="mb-5 flex items-center gap-3 p-3 rounded-xl border border-brand-orange/40 bg-brand-orange/10">
+            <Repeat2 className="w-5 h-5 text-brand-orange shrink-0" />
+            <div className="flex-1 text-sm">
+              <p className="font-bold uppercase tracking-wide text-brand-orange">Remixing</p>
+              <p className="text-text-secondary truncate">
+                {search.source ? `@${search.source} — ` : ""}{search.title ?? "original short"}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => nav({ to: "/studio/upload", search: {} as any })}
+              className="p-1.5 rounded-lg hover:bg-black/30 text-text-secondary"
+              aria-label="Cancel remix"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+
         {/* Mode toggle */}
         <div className="grid grid-cols-2 gap-3 mb-5">
           <button onClick={() => setMode("short")} className={`p-4 rounded-xl border-2 text-left transition-all ${mode === "short" ? "border-brand-orange bg-brand-orange/10" : "border-rise bg-bg-surface hover:border-brand-purple"}`}>
