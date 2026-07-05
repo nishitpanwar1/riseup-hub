@@ -33,7 +33,8 @@ const SELECT = "id, title, description, category, video_url, thumbnail_url, like
 function ShortsPage() {
   const { user } = useAuth();
   const nav = useNavigate();
-  const [muted, setMuted] = useState(true);
+  const [muted, setMuted] = useState(false);
+  const [volume, setVolume] = useState(1);
   const [items, setItems] = useState<Short[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -170,13 +171,33 @@ function ShortsPage() {
       >
         <ChevronLeft className="w-6 h-6" />
       </button>
-      <button
-        onClick={() => setMuted(m => !m)}
-        className="absolute top-4 right-4 z-40 w-10 h-10 rounded-full bg-black/50 backdrop-blur flex items-center justify-center text-white"
-        aria-label="Toggle mute"
-      >
-        {muted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
-      </button>
+      <div className="absolute top-4 right-4 z-40 group">
+        <button
+          onClick={() => setMuted(m => !m)}
+          className="w-10 h-10 rounded-full bg-black/50 backdrop-blur flex items-center justify-center text-white"
+          aria-label="Toggle mute"
+        >
+          {muted || volume === 0 ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+        </button>
+        {/* YouTube-style volume slider on hover */}
+        <div className="absolute right-0 top-11 hidden group-hover:flex flex-col items-center bg-black/80 backdrop-blur rounded-full py-3 px-2 w-10">
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.01}
+            value={muted ? 0 : volume}
+            onChange={(e) => {
+              const v = Number(e.target.value);
+              setVolume(v);
+              setMuted(v === 0);
+            }}
+            className="h-24 w-1 accent-brand-orange"
+            style={{ writingMode: "vertical-lr" as any, WebkitAppearance: "slider-vertical" as any, direction: "rtl" }}
+            aria-label="Volume"
+          />
+        </div>
+      </div>
       <button
         onClick={async () => { await supabase.auth.signOut(); nav({ to: "/" }); }}
         className="absolute top-14 right-4 z-40 w-10 h-10 rounded-full bg-black/50 backdrop-blur flex items-center justify-center text-white"
@@ -201,6 +222,7 @@ function ShortsPage() {
               key={s.id}
               short={s}
               muted={muted}
+              volume={volume}
               isActive={activeId === s.id}
               shouldMount={mount}
               onVisible={() => setActiveId(s.id)}
@@ -226,8 +248,8 @@ function ShortsPage() {
 }
 
 function ShortItem({
-  short, muted, isActive, shouldMount, onVisible, signedIn, registerRef, nav,
-}: { short: Short; muted: boolean; isActive: boolean; shouldMount: boolean; onVisible: () => void; signedIn: boolean; registerRef: (id: string, el: HTMLDivElement | null) => void; nav: ReturnType<typeof useNavigate> }) {
+  short, muted, volume, isActive, shouldMount, onVisible, signedIn, registerRef, nav,
+}: { short: Short; muted: boolean; volume: number; isActive: boolean; shouldMount: boolean; onVisible: () => void; signedIn: boolean; registerRef: (id: string, el: HTMLDivElement | null) => void; nav: ReturnType<typeof useNavigate> }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const progressRef = useRef<HTMLDivElement>(null);
@@ -250,12 +272,26 @@ function ShortItem({
     return () => { io.disconnect(); registerRef(short.id, null); };
   }, [onVisible, registerRef, short.id]);
 
+  // Keep <video> volume in sync with global control
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.volume = volume;
+    v.muted = muted;
+  }, [volume, muted, shouldMount]);
+
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
     if (isActive) {
       v.currentTime = 0;
-      v.play().catch(() => {});
+      v.volume = volume;
+      v.muted = muted;
+      v.play().catch(() => {
+        // Autoplay with audio was blocked — fall back to muted playback.
+        v.muted = true;
+        v.play().catch(() => {});
+      });
       if (!viewedRef.current) {
         viewedRef.current = true;
         supabase.auth.getUser().then(({ data }) => {
@@ -283,9 +319,9 @@ function ShortItem({
   return (
     <div
       ref={wrapRef}
-      className="relative w-full h-[100dvh] snap-start snap-always flex items-center justify-center bg-black"
+      className="relative w-full h-[100dvh] snap-start snap-always flex items-center justify-center bg-black gap-3 sm:gap-5 px-2 sm:px-4"
     >
-      <div className="relative h-full md:h-[95%] aspect-[9/16] max-w-full bg-black overflow-hidden md:rounded-2xl md:shadow-[0_0_60px_rgba(123,47,255,0.25)] flex items-center justify-center">
+      <div className="relative h-full md:h-[95%] aspect-[9/16] max-w-full bg-black overflow-hidden md:rounded-2xl md:shadow-[0_0_60px_rgba(123,47,255,0.25)] flex items-center justify-center shrink">
         {shouldMount ? (
           <video
             ref={videoRef}
@@ -313,7 +349,7 @@ function ShortItem({
           </div>
         )}
 
-        <div className="absolute inset-x-0 bottom-0 p-5 pr-20 bg-gradient-to-t from-black/85 via-black/40 to-transparent text-white">
+        <div className="absolute inset-x-0 bottom-0 p-5 bg-gradient-to-t from-black/85 via-black/40 to-transparent text-white">
           {short.profiles && (
             <Link to="/$username" params={{ username: short.profiles.username }} className="flex items-center gap-2 mb-3">
               <div className="w-10 h-10 rounded-full bg-bg-surface border-2 border-brand-purple flex items-center justify-center font-bold overflow-hidden">
@@ -335,13 +371,14 @@ function ShortItem({
           <h2 className="font-display font-black text-xl uppercase leading-tight">{short.title}</h2>
           {short.description && <p className="text-sm text-white/75 mt-1 line-clamp-2">{short.description}</p>}
         </div>
+      </div>
 
-        <div className="absolute right-3 bottom-28 z-30 flex flex-col gap-4 items-center text-white">
-          <ActionBtn icon={<Heart className="w-6 h-6" />} count={short.like_count} onClick={() => like(short.id, signedIn)} />
-          <ActionBtn icon={<MessageCircle className="w-6 h-6" />} count={null} onClick={() => nav({ to: "/watch/$id", params: { id: short.id } })} />
-          <ActionBtn icon={<Share2 className="w-6 h-6" />} count={null} onClick={() => shareShort(short.title)} />
-          <ActionBtn icon={<Repeat2 className="w-6 h-6 text-brand-orange" />} count={null} onClick={() => remix(short.id, signedIn, nav)} />
-        </div>
+      {/* Actions live OUTSIDE the video frame, YouTube-style */}
+      <div className="flex flex-col gap-5 items-center text-white shrink-0 self-center z-30">
+        <ActionBtn icon={<Heart className="w-6 h-6" />} count={short.like_count} onClick={() => like(short.id, signedIn)} />
+        <ActionBtn icon={<MessageCircle className="w-6 h-6" />} count={null} onClick={() => nav({ to: "/watch/$id", params: { id: short.id } })} />
+        <ActionBtn icon={<Share2 className="w-6 h-6" />} count={null} onClick={() => shareShort(short.title, short.id)} />
+        <ActionBtn icon={<Repeat2 className="w-6 h-6 text-brand-orange" />} count={null} onClick={() => remix(short.id, short.title, short.profiles?.username ?? null, signedIn, nav)} />
       </div>
     </div>
   );
@@ -364,18 +401,18 @@ async function save(videoId: string, signedIn: boolean) {
   toast.success("Saved to your playlist");
 }
 
-async function shareShort(title: string) {
-  const url = window.location.href;
+async function shareShort(title: string, videoId: string) {
+  const url = `${window.location.origin}/watch/${videoId}`;
   if (typeof navigator !== "undefined" && (navigator as any).share) {
     try { await (navigator as any).share({ title, url }); return; } catch (_e) { /* user cancelled */ }
   }
   try { await navigator.clipboard?.writeText(url); toast.success("Link copied"); } catch (_e) { toast.error("Could not share"); }
 }
 
-function remix(videoId: string, signedIn: boolean, nav: ReturnType<typeof useNavigate>) {
+function remix(videoId: string, title: string, username: string | null, signedIn: boolean, nav: ReturnType<typeof useNavigate>) {
   if (!signedIn) return toast.error("Sign in to remix");
-  toast.success("Remixing — upload your take");
-  nav({ to: "/studio/upload", search: { remix: videoId } as any });
+  toast.success(username ? `Remixing @${username}` : "Remixing — upload your take");
+  nav({ to: "/studio/upload", search: { remix: videoId, title, source: username ?? undefined } as any });
 }
 
 function ActionBtn({ icon, count, onClick }: { icon: React.ReactNode; count: number | null; onClick: () => void }) {

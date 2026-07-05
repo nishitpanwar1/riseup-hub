@@ -1,19 +1,22 @@
 import { createFileRoute, useNavigate, redirect, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import toast from "react-hot-toast";
-import { Upload, Film, Zap, Clapperboard } from "lucide-react";
+import { Upload, Film, Zap, Clapperboard, Repeat2, X } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { supabase } from "@/integrations/supabase/client";
 
-type Search = { type?: "short" | "long" };
+type Search = { type?: "short" | "long"; remix?: string; title?: string; source?: string };
 
 export const Route = createFileRoute("/studio/upload")({
   ssr: false,
   validateSearch: (s: Record<string, unknown>): Search => ({
     type: s.type === "long" ? "long" : s.type === "short" ? "short" : undefined,
+    remix: typeof s.remix === "string" ? s.remix : undefined,
+    title: typeof s.title === "string" ? s.title : undefined,
+    source: typeof s.source === "string" ? s.source : undefined,
   }),
   beforeLoad: async () => {
     const { data } = await supabase.auth.getUser();
@@ -43,10 +46,23 @@ function UploadPage() {
   const [thumbFile, setThumbFile] = useState<File | null>(null);
   const [thumbPreview, setThumbPreview] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<Vals>({
+  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<Vals>({
     resolver: zodResolver(schema),
     defaultValues: { category: "discipline" },
   });
+
+  // Prefill when arriving from a Remix action
+  useEffect(() => {
+    if (!search.remix || !search.title) return;
+    setMode("short");
+    reset({
+      title: `Remix · ${search.title}`.slice(0, 100),
+      description: search.source ? `🔁 Remix of @${search.source} — original: ${search.title}` : `🔁 Remix — original: ${search.title}`,
+      category: "discipline",
+      tags: "remix",
+    });
+  }, [search.remix, search.title, search.source, reset]);
+
 
   const handleFile = async (f: File | null) => {
     setProbe(null); setFile(f);
@@ -105,6 +121,8 @@ function UploadPage() {
       setProgress(92);
 
       const tags = vals.tags?.split(",").map(t => t.trim()).filter(Boolean).slice(0, 5) ?? [];
+      if (search.remix && !tags.includes("remix")) tags.unshift("remix");
+      if (search.remix) tags.push(`remixed_from:${search.remix}`);
 
       const { error: insErr } = await supabase.from("videos").insert({
         user_id: u.user.id,
@@ -135,6 +153,27 @@ function UploadPage() {
       <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
         <h1 className="text-3xl font-black uppercase mb-1">Studio · upload</h1>
         <p className="text-text-secondary mb-6">No size cap · streams directly · auto-thumbnail</p>
+
+        {search.remix && (
+          <div className="mb-5 flex items-center gap-3 p-3 rounded-xl border border-brand-orange/40 bg-brand-orange/10">
+            <Repeat2 className="w-5 h-5 text-brand-orange shrink-0" />
+            <div className="flex-1 text-sm">
+              <p className="font-bold uppercase tracking-wide text-brand-orange">Remixing</p>
+              <p className="text-text-secondary truncate">
+                {search.source ? `@${search.source} — ` : ""}{search.title ?? "original short"}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => nav({ to: "/studio/upload", search: {} as any })}
+              className="p-1.5 rounded-lg hover:bg-black/30 text-text-secondary"
+              aria-label="Cancel remix"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
 
         {/* Mode toggle */}
         <div className="grid grid-cols-2 gap-3 mb-5">
