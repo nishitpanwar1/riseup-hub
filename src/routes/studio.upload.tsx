@@ -121,6 +121,8 @@ function UploadPage() {
       setProgress(92);
 
       const tags = vals.tags?.split(",").map(t => t.trim()).filter(Boolean).slice(0, 5) ?? [];
+      if (search.remix && !tags.includes("remix")) tags.unshift("remix");
+      if (search.remix) tags.push(`remixed_from:${search.remix}`);
 
       const { error: insErr } = await supabase.from("videos").insert({
         user_id: u.user.id,
