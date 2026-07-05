@@ -372,6 +372,12 @@ async function shareShort(title: string) {
   try { await navigator.clipboard?.writeText(url); toast.success("Link copied"); } catch (_e) { toast.error("Could not share"); }
 }
 
+function remix(videoId: string, signedIn: boolean, nav: ReturnType<typeof useNavigate>) {
+  if (!signedIn) return toast.error("Sign in to remix");
+  toast.success("Remixing — upload your take");
+  nav({ to: "/studio/upload", search: { remix: videoId } as any });
+}
+
 function ActionBtn({ icon, count, onClick }: { icon: React.ReactNode; count: number | null; onClick: () => void }) {
   return (
     <button onClick={onClick} className="flex flex-col items-center gap-1">
