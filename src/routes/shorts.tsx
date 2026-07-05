@@ -401,18 +401,18 @@ async function save(videoId: string, signedIn: boolean) {
   toast.success("Saved to your playlist");
 }
 
-async function shareShort(title: string) {
-  const url = window.location.href;
+async function shareShort(title: string, videoId: string) {
+  const url = `${window.location.origin}/watch/${videoId}`;
   if (typeof navigator !== "undefined" && (navigator as any).share) {
     try { await (navigator as any).share({ title, url }); return; } catch (_e) { /* user cancelled */ }
   }
   try { await navigator.clipboard?.writeText(url); toast.success("Link copied"); } catch (_e) { toast.error("Could not share"); }
 }
 
-function remix(videoId: string, signedIn: boolean, nav: ReturnType<typeof useNavigate>) {
+function remix(videoId: string, title: string, username: string | null, signedIn: boolean, nav: ReturnType<typeof useNavigate>) {
   if (!signedIn) return toast.error("Sign in to remix");
-  toast.success("Remixing — upload your take");
-  nav({ to: "/studio/upload", search: { remix: videoId } as any });
+  toast.success(username ? `Remixing @${username}` : "Remixing — upload your take");
+  nav({ to: "/studio/upload", search: { remix: videoId, title, source: username ?? undefined } as any });
 }
 
 function ActionBtn({ icon, count, onClick }: { icon: React.ReactNode; count: number | null; onClick: () => void }) {
