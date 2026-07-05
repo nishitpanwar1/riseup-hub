@@ -33,7 +33,8 @@ const SELECT = "id, title, description, category, video_url, thumbnail_url, like
 function ShortsPage() {
   const { user } = useAuth();
   const nav = useNavigate();
-  const [muted, setMuted] = useState(true);
+  const [muted, setMuted] = useState(false);
+  const [volume, setVolume] = useState(1);
   const [items, setItems] = useState<Short[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
