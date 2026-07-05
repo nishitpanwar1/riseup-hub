@@ -1,0 +1,2 @@
+ALTER TABLE public.token_transactions DROP CONSTRAINT token_transactions_type_check;
+ALTER TABLE public.token_transactions ADD CONSTRAINT token_transactions_type_check CHECK (type IN ('tip','purchase','withdrawal','upload_short','upload_long','product_purchase','refund','bonus','admin_grant'));
