@@ -105,6 +105,11 @@ function ShortsPage() {
         if (!row) return;
         setItems(prev => prev.map(s => s.id === row.id ? { ...s, like_count: row.like_count, save_count: row.save_count, view_count: row.view_count } : s));
       })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles" }, (payload) => {
+        const row: any = payload.new;
+        if (!row) return;
+        setItems(prev => prev.map(s => s.user_id === row.id && s.profiles ? { ...s, profiles: { ...s.profiles, username: row.username, display_name: row.display_name, avatar_url: row.avatar_url, creator_tier: row.creator_tier } } : s));
+      })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, []);
