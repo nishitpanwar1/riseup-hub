@@ -315,8 +315,12 @@ function ShortItem({
         <div className="absolute inset-x-0 bottom-0 p-5 pr-20 bg-gradient-to-t from-black/85 via-black/40 to-transparent text-white">
           {short.profiles && (
             <Link to="/$username" params={{ username: short.profiles.username }} className="flex items-center gap-2 mb-3">
-              <div className="w-10 h-10 rounded-full bg-bg-surface border-2 border-brand-purple flex items-center justify-center font-bold">
-                {short.profiles.display_name[0]?.toUpperCase()}
+              <div className="w-10 h-10 rounded-full bg-bg-surface border-2 border-brand-purple flex items-center justify-center font-bold overflow-hidden">
+                {short.profiles.avatar_url ? (
+                  <img src={short.profiles.avatar_url} alt={short.profiles.username} className="w-full h-full object-cover" />
+                ) : (
+                  short.profiles.display_name[0]?.toUpperCase()
+                )}
               </div>
               <div>
                 <div className="font-bold flex items-center gap-1.5">
@@ -332,12 +336,10 @@ function ShortItem({
         </div>
 
         <div className="absolute right-3 bottom-28 z-30 flex flex-col gap-4 items-center text-white">
-          <ActionBtn icon={<Flame className="w-6 h-6 text-brand-orange" />} count={null} onClick={() => toast.success("Streak +1 today")} />
           <ActionBtn icon={<Heart className="w-6 h-6" />} count={short.like_count} onClick={() => like(short.id, signedIn)} />
-          <ActionBtn icon={<Play className="w-6 h-6" />} count={short.view_count} onClick={() => {}} />
-          <ActionBtn icon={<Bookmark className="w-6 h-6" />} count={short.save_count} onClick={() => save(short.id, signedIn)} />
-          <ActionBtn icon={<Users className="w-6 h-6 text-accent-mint" />} count={null} onClick={() => toast("Join the accountability room from the video page", { icon: "🛡️" })} />
+          <ActionBtn icon={<MessageCircle className="w-6 h-6" />} count={null} onClick={() => nav({ to: "/watch/$id", params: { id: short.id } })} />
           <ActionBtn icon={<Share2 className="w-6 h-6" />} count={null} onClick={() => shareShort(short.title)} />
+          <ActionBtn icon={<Repeat2 className="w-6 h-6 text-brand-orange" />} count={null} onClick={() => remix(short.id, signedIn, nav)} />
         </div>
       </div>
     </div>
