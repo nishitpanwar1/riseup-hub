@@ -148,6 +148,46 @@ function ShortsPage() {
     else itemRefs.current.delete(id);
   }, []);
 
+  // My likes for the currently loaded shorts (drives filled heart + toggle behavior)
+  const [myLikes, setMyLikes] = useState<Set<string>>(new Set());
+  const [shareCounts, setShareCounts] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    if (!user || items.length === 0) return;
+    const ids = items.map(i => i.id);
+    (async () => {
+      const { data } = await supabase.from("video_likes").select("video_id").eq("user_id", user.id).in("video_id", ids);
+      if (data) setMyLikes(prev => {
+        const next = new Set(prev);
+        data.forEach((r: any) => next.add(r.video_id));
+        return next;
+      });
+    })();
+  }, [user, items]);
+
+  const toggleLike = useCallback(async (videoId: string) => {
+    if (!user) return toast.error("Sign in to like");
+    const liked = myLikes.has(videoId);
+    // optimistic UI
+    setMyLikes(prev => {
+      const next = new Set(prev);
+      liked ? next.delete(videoId) : next.add(videoId);
+      return next;
+    });
+    setItems(prev => prev.map(s => s.id === videoId ? { ...s, like_count: Math.max(0, (s.like_count ?? 0) + (liked ? -1 : 1)) } : s));
+    if (liked) {
+      const { error } = await supabase.from("video_likes").delete().eq("video_id", videoId).eq("user_id", user.id);
+      if (error) toast.error(error.message);
+    } else {
+      const { error } = await supabase.from("video_likes").insert({ video_id: videoId, user_id: user.id });
+      if (error && !error.message.includes("duplicate")) toast.error(error.message);
+    }
+  }, [user, myLikes]);
+
+  const bumpShare = useCallback((videoId: string) => {
+    setShareCounts(prev => ({ ...prev, [videoId]: (prev[videoId] ?? 0) + 1 }));
+  }, []);
+
   if (loading) return <CenterMsg>Loading the arena…</CenterMsg>;
   if (items.length === 0) {
     return (
