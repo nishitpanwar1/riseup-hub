@@ -293,8 +293,8 @@ function ShortsPage() {
 }
 
 function ShortItem({
-  short, muted, volume, isActive, shouldMount, onVisible, signedIn, registerRef, nav,
-}: { short: Short; muted: boolean; volume: number; isActive: boolean; shouldMount: boolean; onVisible: () => void; signedIn: boolean; registerRef: (id: string, el: HTMLDivElement | null) => void; nav: ReturnType<typeof useNavigate> }) {
+  short, muted, volume, isActive, shouldMount, onVisible, signedIn, registerRef, nav, liked, shareCount, onLike, onShare,
+}: { short: Short; muted: boolean; volume: number; isActive: boolean; shouldMount: boolean; onVisible: () => void; signedIn: boolean; registerRef: (id: string, el: HTMLDivElement | null) => void; nav: ReturnType<typeof useNavigate>; liked: boolean; shareCount: number; onLike: () => void; onShare: () => void }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const progressRef = useRef<HTMLDivElement>(null);
