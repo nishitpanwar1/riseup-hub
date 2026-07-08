@@ -352,7 +352,7 @@ function ShortItem({
     const v = videoRef.current;
     const now = Date.now();
     if (now - lastTapRef.current < 300) {
-      like(short.id, signedIn);
+      onLike();
       lastTapRef.current = 0;
       return;
     }
