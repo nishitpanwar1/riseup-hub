@@ -88,14 +88,13 @@ function ShortsPage() {
     setLoadingMore(false);
   }, [loadingMore, hasMore, items]);
 
-  // realtime: prepend new uploads
+  // realtime: prepend new uploads + live counter updates
   useEffect(() => {
     const channel = supabase
-      .channel("shorts-rt")
+      .channel(`shorts-rt-${Math.random().toString(36).slice(2, 9)}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "videos" }, async (payload) => {
         const row: any = payload.new;
         if (!row || row.is_short !== true || row.status !== "active" || seenIds.current.has(row.id)) return;
-        // fetch with profile join
         const { data } = await supabase.from("videos").select(SELECT).eq("id", row.id).maybeSingle();
         if (data) {
           seenIds.current.add(row.id);
@@ -105,7 +104,7 @@ function ShortsPage() {
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "videos" }, (payload) => {
         const row: any = payload.new;
         if (!row) return;
-        setItems(prev => prev.map(s => s.id === row.id ? { ...s, like_count: row.like_count, save_count: row.save_count, view_count: row.view_count } : s));
+        setItems(prev => prev.map(s => s.id === row.id ? { ...s, like_count: row.like_count, save_count: row.save_count, view_count: row.view_count, comment_count: row.comment_count } : s));
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles" }, (payload) => {
         const row: any = payload.new;
