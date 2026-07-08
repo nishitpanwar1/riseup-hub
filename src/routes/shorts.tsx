@@ -20,6 +20,7 @@ type Short = {
   like_count: number;
   save_count: number;
   view_count: number;
+  comment_count: number;
   user_id: string;
   created_at: string;
   profiles: { username: string; display_name: string; avatar_url: string | null; creator_tier: string } | null;
@@ -28,7 +29,7 @@ type Short = {
 const PAGE = 8;
 const STORAGE_KEY = "riseup:shorts:active";
 
-const SELECT = "id, title, description, category, video_url, thumbnail_url, like_count, save_count, view_count, user_id, created_at, profiles(username, display_name, avatar_url, creator_tier)";
+const SELECT = "id, title, description, category, video_url, thumbnail_url, like_count, save_count, view_count, comment_count, user_id, created_at, profiles(username, display_name, avatar_url, creator_tier)";
 
 function ShortsPage() {
   const { user } = useAuth();
@@ -87,14 +88,13 @@ function ShortsPage() {
     setLoadingMore(false);
   }, [loadingMore, hasMore, items]);
 
-  // realtime: prepend new uploads
+  // realtime: prepend new uploads + live counter updates
   useEffect(() => {
     const channel = supabase
-      .channel("shorts-rt")
+      .channel(`shorts-rt-${Math.random().toString(36).slice(2, 9)}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "videos" }, async (payload) => {
         const row: any = payload.new;
         if (!row || row.is_short !== true || row.status !== "active" || seenIds.current.has(row.id)) return;
-        // fetch with profile join
         const { data } = await supabase.from("videos").select(SELECT).eq("id", row.id).maybeSingle();
         if (data) {
           seenIds.current.add(row.id);
@@ -104,7 +104,7 @@ function ShortsPage() {
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "videos" }, (payload) => {
         const row: any = payload.new;
         if (!row) return;
-        setItems(prev => prev.map(s => s.id === row.id ? { ...s, like_count: row.like_count, save_count: row.save_count, view_count: row.view_count } : s));
+        setItems(prev => prev.map(s => s.id === row.id ? { ...s, like_count: row.like_count, save_count: row.save_count, view_count: row.view_count, comment_count: row.comment_count } : s));
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles" }, (payload) => {
         const row: any = payload.new;
@@ -146,6 +146,46 @@ function ShortsPage() {
   const registerRef = useCallback((id: string, el: HTMLDivElement | null) => {
     if (el) itemRefs.current.set(id, el);
     else itemRefs.current.delete(id);
+  }, []);
+
+  // My likes for the currently loaded shorts (drives filled heart + toggle behavior)
+  const [myLikes, setMyLikes] = useState<Set<string>>(new Set());
+  const [shareCounts, setShareCounts] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    if (!user || items.length === 0) return;
+    const ids = items.map(i => i.id);
+    (async () => {
+      const { data } = await supabase.from("video_likes").select("video_id").eq("user_id", user.id).in("video_id", ids);
+      if (data) setMyLikes(prev => {
+        const next = new Set(prev);
+        data.forEach((r: any) => next.add(r.video_id));
+        return next;
+      });
+    })();
+  }, [user, items]);
+
+  const toggleLike = useCallback(async (videoId: string) => {
+    if (!user) return toast.error("Sign in to like");
+    const liked = myLikes.has(videoId);
+    // optimistic UI
+    setMyLikes(prev => {
+      const next = new Set(prev);
+      liked ? next.delete(videoId) : next.add(videoId);
+      return next;
+    });
+    setItems(prev => prev.map(s => s.id === videoId ? { ...s, like_count: Math.max(0, (s.like_count ?? 0) + (liked ? -1 : 1)) } : s));
+    if (liked) {
+      const { error } = await supabase.from("video_likes").delete().eq("video_id", videoId).eq("user_id", user.id);
+      if (error) toast.error(error.message);
+    } else {
+      const { error } = await supabase.from("video_likes").insert({ video_id: videoId, user_id: user.id });
+      if (error && !error.message.includes("duplicate")) toast.error(error.message);
+    }
+  }, [user, myLikes]);
+
+  const bumpShare = useCallback((videoId: string) => {
+    setShareCounts(prev => ({ ...prev, [videoId]: (prev[videoId] ?? 0) + 1 }));
   }, []);
 
   if (loading) return <CenterMsg>Loading the arena…</CenterMsg>;
@@ -229,7 +269,12 @@ function ShortsPage() {
               signedIn={!!user}
               registerRef={registerRef}
               nav={nav}
+              liked={myLikes.has(s.id)}
+              shareCount={shareCounts[s.id] ?? 0}
+              onLike={() => toggleLike(s.id)}
+              onShare={() => bumpShare(s.id)}
             />
+
           );
         })}
         {loadingMore && (
@@ -248,8 +293,8 @@ function ShortsPage() {
 }
 
 function ShortItem({
-  short, muted, volume, isActive, shouldMount, onVisible, signedIn, registerRef, nav,
-}: { short: Short; muted: boolean; volume: number; isActive: boolean; shouldMount: boolean; onVisible: () => void; signedIn: boolean; registerRef: (id: string, el: HTMLDivElement | null) => void; nav: ReturnType<typeof useNavigate> }) {
+  short, muted, volume, isActive, shouldMount, onVisible, signedIn, registerRef, nav, liked, shareCount, onLike, onShare,
+}: { short: Short; muted: boolean; volume: number; isActive: boolean; shouldMount: boolean; onVisible: () => void; signedIn: boolean; registerRef: (id: string, el: HTMLDivElement | null) => void; nav: ReturnType<typeof useNavigate>; liked: boolean; shareCount: number; onLike: () => void; onShare: () => void }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const progressRef = useRef<HTMLDivElement>(null);
@@ -307,7 +352,7 @@ function ShortItem({
     const v = videoRef.current;
     const now = Date.now();
     if (now - lastTapRef.current < 300) {
-      like(short.id, signedIn);
+      onLike();
       lastTapRef.current = 0;
       return;
     }
@@ -375,9 +420,13 @@ function ShortItem({
 
       {/* Actions live OUTSIDE the video frame, YouTube-style */}
       <div className="flex flex-col gap-5 items-center text-white shrink-0 self-center z-30">
-        <ActionBtn icon={<Heart className="w-6 h-6" />} count={short.like_count} onClick={() => like(short.id, signedIn)} />
-        <ActionBtn icon={<MessageCircle className="w-6 h-6" />} count={null} onClick={() => nav({ to: "/watch/$id", params: { id: short.id } })} />
-        <ActionBtn icon={<Share2 className="w-6 h-6" />} count={null} onClick={() => shareShort(short.title, short.id)} />
+        <ActionBtn
+          icon={<Heart className={`w-6 h-6 ${liked ? "fill-brand-orange text-brand-orange" : ""}`} />}
+          count={short.like_count}
+          onClick={onLike}
+        />
+        <ActionBtn icon={<MessageCircle className="w-6 h-6" />} count={short.comment_count ?? 0} onClick={() => nav({ to: "/watch/$id", params: { id: short.id } })} />
+        <ActionBtn icon={<Share2 className="w-6 h-6" />} count={shareCount} onClick={() => { onShare(); shareShort(short.title, short.id); }} />
         <ActionBtn icon={<Repeat2 className="w-6 h-6 text-brand-orange" />} count={null} onClick={() => remix(short.id, short.title, short.profiles?.username ?? null, signedIn, nav)} />
       </div>
     </div>
