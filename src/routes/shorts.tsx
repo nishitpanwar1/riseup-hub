@@ -420,9 +420,13 @@ function ShortItem({
 
       {/* Actions live OUTSIDE the video frame, YouTube-style */}
       <div className="flex flex-col gap-5 items-center text-white shrink-0 self-center z-30">
-        <ActionBtn icon={<Heart className="w-6 h-6" />} count={short.like_count} onClick={() => like(short.id, signedIn)} />
-        <ActionBtn icon={<MessageCircle className="w-6 h-6" />} count={null} onClick={() => nav({ to: "/watch/$id", params: { id: short.id } })} />
-        <ActionBtn icon={<Share2 className="w-6 h-6" />} count={null} onClick={() => shareShort(short.title, short.id)} />
+        <ActionBtn
+          icon={<Heart className={`w-6 h-6 ${liked ? "fill-brand-orange text-brand-orange" : ""}`} />}
+          count={short.like_count}
+          onClick={onLike}
+        />
+        <ActionBtn icon={<MessageCircle className="w-6 h-6" />} count={short.comment_count ?? 0} onClick={() => nav({ to: "/watch/$id", params: { id: short.id } })} />
+        <ActionBtn icon={<Share2 className="w-6 h-6" />} count={shareCount} onClick={() => { onShare(); shareShort(short.title, short.id); }} />
         <ActionBtn icon={<Repeat2 className="w-6 h-6 text-brand-orange" />} count={null} onClick={() => remix(short.id, short.title, short.profiles?.username ?? null, signedIn, nav)} />
       </div>
     </div>
