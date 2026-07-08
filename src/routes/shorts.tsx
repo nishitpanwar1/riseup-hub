@@ -269,7 +269,12 @@ function ShortsPage() {
               signedIn={!!user}
               registerRef={registerRef}
               nav={nav}
+              liked={myLikes.has(s.id)}
+              shareCount={shareCounts[s.id] ?? 0}
+              onLike={() => toggleLike(s.id)}
+              onShare={() => bumpShare(s.id)}
             />
+
           );
         })}
         {loadingMore && (
