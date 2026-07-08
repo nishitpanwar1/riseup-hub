@@ -20,6 +20,7 @@ type Short = {
   like_count: number;
   save_count: number;
   view_count: number;
+  comment_count: number;
   user_id: string;
   created_at: string;
   profiles: { username: string; display_name: string; avatar_url: string | null; creator_tier: string } | null;
@@ -28,7 +29,7 @@ type Short = {
 const PAGE = 8;
 const STORAGE_KEY = "riseup:shorts:active";
 
-const SELECT = "id, title, description, category, video_url, thumbnail_url, like_count, save_count, view_count, user_id, created_at, profiles(username, display_name, avatar_url, creator_tier)";
+const SELECT = "id, title, description, category, video_url, thumbnail_url, like_count, save_count, view_count, comment_count, user_id, created_at, profiles(username, display_name, avatar_url, creator_tier)";
 
 function ShortsPage() {
   const { user } = useAuth();
