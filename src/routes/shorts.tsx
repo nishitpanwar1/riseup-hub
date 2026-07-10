@@ -152,6 +152,7 @@ function ShortsPage() {
   // My likes for the currently loaded shorts (drives filled heart + toggle behavior)
   const [myLikes, setMyLikes] = useState<Set<string>>(new Set());
   const [shareCounts, setShareCounts] = useState<Record<string, number>>({});
+  const [commentsOpenFor, setCommentsOpenFor] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user || items.length === 0) return;
