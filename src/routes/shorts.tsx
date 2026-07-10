@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { resolveVideoSrc } from "@/lib/video-url";
+import { ShortsComments } from "@/components/ShortsComments";
 
 export const Route = createFileRoute("/shorts")({
   component: ShortsPage,
