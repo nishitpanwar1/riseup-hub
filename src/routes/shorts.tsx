@@ -291,6 +291,10 @@ function ShortsPage() {
       <div className="md:hidden absolute bottom-2 left-1/2 -translate-x-1/2 text-[10px] text-white/60 z-40 flex items-center gap-1 pointer-events-none">
         <Play className="w-3 h-3" /> Swipe up for next
       </div>
+
+      {commentsOpenFor && (
+        <ShortsComments videoId={commentsOpenFor} onClose={() => setCommentsOpenFor(null)} />
+      )}
     </div>
   );
 }
