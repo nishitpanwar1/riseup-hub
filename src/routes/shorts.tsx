@@ -428,7 +428,7 @@ function ShortItem({
           count={short.like_count}
           onClick={onLike}
         />
-        <ActionBtn icon={<MessageCircle className="w-6 h-6" />} count={short.comment_count ?? 0} onClick={() => nav({ to: "/watch/$id", params: { id: short.id } })} />
+        <ActionBtn icon={<MessageCircle className="w-6 h-6" />} count={short.comment_count ?? 0} onClick={onOpenComments} />
         <ActionBtn icon={<Share2 className="w-6 h-6" />} count={shareCount} onClick={() => { onShare(); shareShort(short.title, short.id); }} />
         <ActionBtn icon={<Repeat2 className="w-6 h-6 text-brand-orange" />} count={null} onClick={() => remix(short.id, short.title, short.profiles?.username ?? null, signedIn, nav)} />
       </div>
