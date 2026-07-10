@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { resolveVideoSrc } from "@/lib/video-url";
+import { ShortsComments } from "@/components/ShortsComments";
 
 export const Route = createFileRoute("/shorts")({
   component: ShortsPage,
@@ -151,6 +152,7 @@ function ShortsPage() {
   // My likes for the currently loaded shorts (drives filled heart + toggle behavior)
   const [myLikes, setMyLikes] = useState<Set<string>>(new Set());
   const [shareCounts, setShareCounts] = useState<Record<string, number>>({});
+  const [commentsOpenFor, setCommentsOpenFor] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user || items.length === 0) return;
@@ -273,6 +275,7 @@ function ShortsPage() {
               shareCount={shareCounts[s.id] ?? 0}
               onLike={() => toggleLike(s.id)}
               onShare={() => bumpShare(s.id)}
+              onOpenComments={() => setCommentsOpenFor(s.id)}
             />
 
           );
@@ -288,13 +291,17 @@ function ShortsPage() {
       <div className="md:hidden absolute bottom-2 left-1/2 -translate-x-1/2 text-[10px] text-white/60 z-40 flex items-center gap-1 pointer-events-none">
         <Play className="w-3 h-3" /> Swipe up for next
       </div>
+
+      {commentsOpenFor && (
+        <ShortsComments videoId={commentsOpenFor} onClose={() => setCommentsOpenFor(null)} />
+      )}
     </div>
   );
 }
 
 function ShortItem({
-  short, muted, volume, isActive, shouldMount, onVisible, signedIn, registerRef, nav, liked, shareCount, onLike, onShare,
-}: { short: Short; muted: boolean; volume: number; isActive: boolean; shouldMount: boolean; onVisible: () => void; signedIn: boolean; registerRef: (id: string, el: HTMLDivElement | null) => void; nav: ReturnType<typeof useNavigate>; liked: boolean; shareCount: number; onLike: () => void; onShare: () => void }) {
+  short, muted, volume, isActive, shouldMount, onVisible, signedIn, registerRef, nav, liked, shareCount, onLike, onShare, onOpenComments,
+}: { short: Short; muted: boolean; volume: number; isActive: boolean; shouldMount: boolean; onVisible: () => void; signedIn: boolean; registerRef: (id: string, el: HTMLDivElement | null) => void; nav: ReturnType<typeof useNavigate>; liked: boolean; shareCount: number; onLike: () => void; onShare: () => void; onOpenComments: () => void }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const progressRef = useRef<HTMLDivElement>(null);
@@ -425,7 +432,7 @@ function ShortItem({
           count={short.like_count}
           onClick={onLike}
         />
-        <ActionBtn icon={<MessageCircle className="w-6 h-6" />} count={short.comment_count ?? 0} onClick={() => nav({ to: "/watch/$id", params: { id: short.id } })} />
+        <ActionBtn icon={<MessageCircle className="w-6 h-6" />} count={short.comment_count ?? 0} onClick={onOpenComments} />
         <ActionBtn icon={<Share2 className="w-6 h-6" />} count={shareCount} onClick={() => { onShare(); shareShort(short.title, short.id); }} />
         <ActionBtn icon={<Repeat2 className="w-6 h-6 text-brand-orange" />} count={null} onClick={() => remix(short.id, short.title, short.profiles?.username ?? null, signedIn, nav)} />
       </div>
