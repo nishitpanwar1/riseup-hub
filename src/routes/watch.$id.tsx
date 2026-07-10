@@ -102,10 +102,24 @@ function WatchPage() {
     if (!user) return toast.error("Sign in to comment");
     const body = comment.trim();
     if (!body) return;
-    const { error } = await supabase.from("video_comments").insert({ video_id: video.id, user_id: user.id, body });
-    if (error) return toast.error(error.message);
+    // Optimistic prepend
+    const tempId = `tmp-${Date.now()}`;
+    const { data: me } = await supabase.from("profiles").select("username, display_name, avatar_url").eq("id", user.id).maybeSingle();
+    qc.setQueryData(["comments", id], (prev: any[] = []) => [
+      { id: tempId, video_id: video.id, user_id: user.id, body, created_at: new Date().toISOString(), profiles: me },
+      ...prev,
+    ]);
     setComment("");
-    toast.success("Comment posted");
+    const { data: inserted, error } = await supabase.from("video_comments").insert({ video_id: video.id, user_id: user.id, body }).select("*, profiles(username, display_name, avatar_url)").maybeSingle();
+    if (error) {
+      qc.setQueryData(["comments", id], (prev: any[] = []) => prev.filter(c => c.id !== tempId));
+      return toast.error(error.message);
+    }
+    // Replace temp with real row
+    qc.setQueryData(["comments", id], (prev: any[] = []) => {
+      const withoutTemp = prev.filter(c => c.id !== tempId && c.id !== inserted?.id);
+      return inserted ? [inserted, ...withoutTemp] : withoutTemp;
+    });
   };
   const share = async () => {
     const url = window.location.href;
