@@ -275,6 +275,7 @@ function ShortsPage() {
               shareCount={shareCounts[s.id] ?? 0}
               onLike={() => toggleLike(s.id)}
               onShare={() => bumpShare(s.id)}
+              onOpenComments={() => setCommentsOpenFor(s.id)}
             />
 
           );
