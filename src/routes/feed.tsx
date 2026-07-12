@@ -179,23 +179,20 @@ function FeedPage() {
     }
     // Ranking algorithm (YouTube-style): engagement + freshness + personalization
     if (view === "home" && cat !== "trending") {
-      const now = Date.now();
-      const catScore = signals?.catScore ?? new Map<string, number>();
-      const creatorSet = signals?.creatorSet ?? new Set<string>();
-      const scored = list.map((v: any) => {
-        const hours = Math.max(1, (now - new Date(v.created_at).getTime()) / 36e5);
-        const engagement = Math.log10((v.view_count ?? 0) + 1) * 0.4 + Math.log10((v.like_count ?? 0) + 1) * 0.9;
-        const freshness = Math.exp(-hours / 48) * 1.5;
-        const catBoost = (catScore.get(v.category) ?? 0) * 0.15;
-        const followBoost = creatorSet.has(v.user_id) ? 1.2 : 0;
-        const random = Math.random() * 0.2;
-        return { v, score: engagement + freshness + catBoost + followBoost + random };
-      });
+      const scored = list.map((v: any) => ({ v, score: scoreVideo(v, signals) }));
       scored.sort((a, b) => b.score - a.score);
       return scored.map(s => s.v);
     }
     return list;
   }, [videos, filterIds, view, q, cat, signals]);
+
+  // rank shorts too — most-watched creators/categories float to the top
+  const rankedShorts = useMemo(() => {
+    if (!shorts.length) return [];
+    const scored = (shorts as any[]).map((s: any) => ({ s, score: scoreVideo(s, signals) }));
+    scored.sort((a, b) => b.score - a.score);
+    return scored.map(x => x.s);
+  }, [shorts, signals]);
 
   const featured = filteredVideos[0];
   const grid = filteredVideos.slice(1);
