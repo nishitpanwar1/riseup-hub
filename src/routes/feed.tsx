@@ -101,7 +101,7 @@ function FeedPage() {
     queryFn: async () => {
       let qb = supabase
         .from("videos")
-        .select("id, title, category, video_url, thumbnail_url, view_count, like_count, created_at, profiles(username, display_name, avatar_url)")
+        .select("id, title, category, video_url, thumbnail_url, view_count, like_count, created_at, user_id, profiles(username, display_name, avatar_url)")
         .eq("status", "active")
         .eq("is_short", true)
         .order("created_at", { ascending: false })
