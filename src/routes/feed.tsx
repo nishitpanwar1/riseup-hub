@@ -601,7 +601,6 @@ function ShortsShelf({ shorts }: { shorts: any[] }) {
             <Link
               key={s.id}
               to="/shorts"
-              search={{ id: s.id } as any}
               className="relative shrink-0 snap-start w-[160px] sm:w-[180px] aspect-[9/16] rounded-xl overflow-hidden bg-bg-surface border border-rise group"
             >
               {s.thumbnail_url ? (
