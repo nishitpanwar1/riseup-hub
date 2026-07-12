@@ -96,6 +96,49 @@ function FeedPage() {
     },
   });
 
+  // shorts shelf — always fetch, mixed into feed like YouTube
+  const { data: shorts = [] } = useQuery({
+    queryKey: ["feed-shorts", cat],
+    queryFn: async () => {
+      let qb = supabase
+        .from("videos")
+        .select("id, title, category, video_url, thumbnail_url, view_count, like_count, created_at, profiles(username, display_name, avatar_url)")
+        .eq("status", "active")
+        .eq("is_short", true)
+        .order("created_at", { ascending: false })
+        .limit(20);
+      if (cat !== "all" && cat !== "trending") qb = qb.eq("category", cat);
+      const { data } = await qb;
+      return data ?? [];
+    },
+  });
+
+  // personalization signals: liked categories + followed creator ids
+  const { data: signals } = useQuery({
+    queryKey: ["feed-signals", user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const [{ data: likes }, { data: views }, { data: follows }] = await Promise.all([
+        supabase.from("video_likes").select("videos(category, user_id)").eq("user_id", user!.id).limit(100),
+        supabase.from("video_views").select("videos(category, user_id)").eq("user_id", user!.id).order("created_at", { ascending: false }).limit(100),
+        supabase.from("follows").select("following_id").eq("follower_id", user!.id),
+      ]);
+      const catScore = new Map<string, number>();
+      const creatorSet = new Set<string>((follows ?? []).map((f: any) => f.following_id));
+      const bump = (rows: any[] | null, weight: number) => {
+        (rows ?? []).forEach((r: any) => {
+          const v = Array.isArray(r.videos) ? r.videos[0] : r.videos;
+          if (!v) return;
+          if (v.category) catScore.set(v.category, (catScore.get(v.category) ?? 0) + weight);
+          if (v.user_id) creatorSet.add(v.user_id);
+        });
+      };
+      bump(likes, 3);
+      bump(views, 1);
+      return { catScore, creatorSet };
+    },
+  });
+
   // view filters (liked/history) — pull user-specific id lists
   const { data: filterIds } = useQuery({
     queryKey: ["feed-filter", view, user?.id],
