@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
-import { Flame, Home, Compass, Users, Swords, User as UserIcon, History as HistoryIcon, Heart, Clock, Trophy, ShoppingBag, BarChart3 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Flame, Home, Compass, Users, Swords, User as UserIcon, History as HistoryIcon, Heart, Clock, Trophy, ShoppingBag, BarChart3, Play, ChevronLeft, ChevronRight } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -69,7 +69,7 @@ function FeedPage() {
     queryFn: async () => {
       let qb = supabase
         .from("videos")
-        .select("id, title, description, category, video_url, thumbnail_url, duration, like_count, view_count, tags, created_at, is_short, profiles(username, display_name, avatar_url)")
+        .select("id, title, description, category, video_url, thumbnail_url, duration, like_count, view_count, tags, created_at, is_short, user_id, profiles(username, display_name, avatar_url)")
         .eq("status", "active")
         .eq("is_short", false)
         .order("created_at", { ascending: false })
@@ -92,6 +92,49 @@ function FeedPage() {
       if (ids.length === 0) return [];
       const { data } = await supabase.from("profiles").select("id, username, display_name").in("id", ids);
       return data ?? [];
+    },
+  });
+
+  // shorts shelf — always fetch, mixed into feed like YouTube
+  const { data: shorts = [] } = useQuery({
+    queryKey: ["feed-shorts", cat],
+    queryFn: async () => {
+      let qb = supabase
+        .from("videos")
+        .select("id, title, category, video_url, thumbnail_url, view_count, like_count, created_at, profiles(username, display_name, avatar_url)")
+        .eq("status", "active")
+        .eq("is_short", true)
+        .order("created_at", { ascending: false })
+        .limit(20);
+      if (cat !== "all" && cat !== "trending") qb = qb.eq("category", cat);
+      const { data } = await qb;
+      return data ?? [];
+    },
+  });
+
+  // personalization signals: liked categories + followed creator ids
+  const { data: signals } = useQuery({
+    queryKey: ["feed-signals", user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const [{ data: likes }, { data: views }, { data: follows }] = await Promise.all([
+        supabase.from("video_likes").select("videos(category, user_id)").eq("user_id", user!.id).limit(100),
+        supabase.from("video_views").select("videos(category, user_id)").eq("user_id", user!.id).order("created_at", { ascending: false }).limit(100),
+        supabase.from("follows").select("following_id").eq("follower_id", user!.id),
+      ]);
+      const catScore = new Map<string, number>();
+      const creatorSet = new Set<string>((follows ?? []).map((f: any) => f.following_id));
+      const bump = (rows: any[] | null, weight: number) => {
+        (rows ?? []).forEach((r: any) => {
+          const v = Array.isArray(r.videos) ? r.videos[0] : r.videos;
+          if (!v) return;
+          if (v.category) catScore.set(v.category, (catScore.get(v.category) ?? 0) + weight);
+          if (v.user_id) creatorSet.add(v.user_id);
+        });
+      };
+      bump(likes, 3);
+      bump(views, 1);
+      return { catScore, creatorSet };
     },
   });
 
@@ -131,8 +174,25 @@ function FeedPage() {
           .filter(Boolean).join(" ").toLowerCase().includes(term);
       });
     }
+    // Ranking algorithm (YouTube-style): engagement + freshness + personalization
+    if (view === "home" && cat !== "trending") {
+      const now = Date.now();
+      const catScore = signals?.catScore ?? new Map<string, number>();
+      const creatorSet = signals?.creatorSet ?? new Set<string>();
+      const scored = list.map((v: any) => {
+        const hours = Math.max(1, (now - new Date(v.created_at).getTime()) / 36e5);
+        const engagement = Math.log10((v.view_count ?? 0) + 1) * 0.4 + Math.log10((v.like_count ?? 0) + 1) * 0.9;
+        const freshness = Math.exp(-hours / 48) * 1.5;
+        const catBoost = (catScore.get(v.category) ?? 0) * 0.15;
+        const followBoost = creatorSet.has(v.user_id) ? 1.2 : 0;
+        const random = Math.random() * 0.2;
+        return { v, score: engagement + freshness + catBoost + followBoost + random };
+      });
+      scored.sort((a, b) => b.score - a.score);
+      return scored.map(s => s.v);
+    }
     return list;
-  }, [videos, filterIds, view, q]);
+  }, [videos, filterIds, view, q, cat, signals]);
 
   const featured = filteredVideos[0];
   const grid = filteredVideos.slice(1);
@@ -268,11 +328,21 @@ function FeedPage() {
           ) : (
             <div className="space-y-5">
               {featured && view === "home" && !q && <FeaturedCard video={featured} />}
-              <div className="grid sm:grid-cols-2 gap-5">
-                {(view === "home" && !q ? grid : filteredVideos).map((v: any) => (
-                  <VideoCard key={v.id} video={v} />
-                ))}
-              </div>
+              {view === "home" && !q ? (
+                <>
+                  <div className="grid sm:grid-cols-2 gap-5">
+                    {grid.slice(0, 2).map((v: any) => <VideoCard key={v.id} video={v} />)}
+                  </div>
+                  {shorts.length > 0 && <ShortsShelf shorts={shorts} />}
+                  <div className="grid sm:grid-cols-2 gap-5">
+                    {grid.slice(2).map((v: any) => <VideoCard key={v.id} video={v} />)}
+                  </div>
+                </>
+              ) : (
+                <div className="grid sm:grid-cols-2 gap-5">
+                  {filteredVideos.map((v: any) => <VideoCard key={v.id} video={v} />)}
+                </div>
+              )}
             </div>
           )}
         </main>
@@ -495,4 +565,61 @@ function timeAgo(iso: string) {
   if (d < 86400) return `${Math.floor(d / 3600)} hours ago`;
   if (d < 86400 * 7) return `${Math.floor(d / 86400)} days ago`;
   return new Date(iso).toLocaleDateString();
+}
+
+function ShortsShelf({ shorts }: { shorts: any[] }) {
+  const railRef = useRef<HTMLDivElement>(null);
+  const scroll = (dir: number) => {
+    const el = railRef.current;
+    if (!el) return;
+    el.scrollBy({ left: dir * el.clientWidth * 0.9, behavior: "smooth" });
+  };
+  return (
+    <section className="card-rise p-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <span className="w-7 h-7 rounded-lg bg-gradient-to-br from-red-500 to-pink-600 flex items-center justify-center">
+            <Play className="w-4 h-4 fill-white text-white" />
+          </span>
+          <h2 className="font-display font-black text-lg uppercase tracking-tight">Shorts</h2>
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={() => scroll(-1)} className="w-8 h-8 rounded-full bg-bg-surface border border-rise flex items-center justify-center hover:bg-bg-card" aria-label="Scroll left">
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <button onClick={() => scroll(1)} className="w-8 h-8 rounded-full bg-bg-surface border border-rise flex items-center justify-center hover:bg-bg-card" aria-label="Scroll right">
+            <ChevronRight className="w-4 h-4" />
+          </button>
+          <Link to="/shorts" className="text-xs font-bold uppercase tracking-wider text-text-secondary hover:text-text-primary ml-1">See all</Link>
+        </div>
+      </div>
+      <div ref={railRef} className="flex gap-3 overflow-x-auto scrollbar-none snap-x snap-mandatory" style={{ scrollbarWidth: "none" }}>
+        {shorts.map((s: any) => {
+          const p = Array.isArray(s.profiles) ? s.profiles[0] : s.profiles;
+          return (
+            <Link
+              key={s.id}
+              to="/shorts"
+              className="relative shrink-0 snap-start w-[160px] sm:w-[180px] aspect-[9/16] rounded-xl overflow-hidden bg-bg-surface border border-rise group"
+            >
+              {s.thumbnail_url ? (
+                <img src={s.thumbnail_url} alt={s.title} className="w-full h-full object-cover" loading="lazy" />
+              ) : (
+                <video src={s.video_url} muted playsInline preload="metadata" className="w-full h-full object-cover" />
+              )}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-transparent" />
+              <div className="absolute inset-x-0 bottom-0 p-2.5">
+                <div className="text-white text-xs font-bold line-clamp-2 leading-tight">{s.title}</div>
+                <div className="mt-1 flex items-center gap-1.5 text-[10px] text-white/80 font-stat">
+                  <Play className="w-3 h-3 fill-white" />
+                  <span>{formatK(s.view_count ?? 0)}</span>
+                  {p && <span className="truncate ml-1">@{p.username}</span>}
+                </div>
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+    </section>
+  );
 }
