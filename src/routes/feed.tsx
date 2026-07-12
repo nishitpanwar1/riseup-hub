@@ -329,11 +329,21 @@ function FeedPage() {
           ) : (
             <div className="space-y-5">
               {featured && view === "home" && !q && <FeaturedCard video={featured} />}
-              <div className="grid sm:grid-cols-2 gap-5">
-                {(view === "home" && !q ? grid : filteredVideos).map((v: any) => (
-                  <VideoCard key={v.id} video={v} />
-                ))}
-              </div>
+              {view === "home" && !q ? (
+                <>
+                  <div className="grid sm:grid-cols-2 gap-5">
+                    {grid.slice(0, 2).map((v: any) => <VideoCard key={v.id} video={v} />)}
+                  </div>
+                  {shorts.length > 0 && <ShortsShelf shorts={shorts} />}
+                  <div className="grid sm:grid-cols-2 gap-5">
+                    {grid.slice(2).map((v: any) => <VideoCard key={v.id} video={v} />)}
+                  </div>
+                </>
+              ) : (
+                <div className="grid sm:grid-cols-2 gap-5">
+                  {filteredVideos.map((v: any) => <VideoCard key={v.id} video={v} />)}
+                </div>
+              )}
             </div>
           )}
         </main>
