@@ -567,3 +567,61 @@ function timeAgo(iso: string) {
   if (d < 86400 * 7) return `${Math.floor(d / 86400)} days ago`;
   return new Date(iso).toLocaleDateString();
 }
+
+function ShortsShelf({ shorts }: { shorts: any[] }) {
+  const railRef = useRef<HTMLDivElement>(null);
+  const scroll = (dir: number) => {
+    const el = railRef.current;
+    if (!el) return;
+    el.scrollBy({ left: dir * el.clientWidth * 0.9, behavior: "smooth" });
+  };
+  return (
+    <section className="card-rise p-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <span className="w-7 h-7 rounded-lg bg-gradient-to-br from-red-500 to-pink-600 flex items-center justify-center">
+            <Play className="w-4 h-4 fill-white text-white" />
+          </span>
+          <h2 className="font-display font-black text-lg uppercase tracking-tight">Shorts</h2>
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={() => scroll(-1)} className="w-8 h-8 rounded-full bg-bg-surface border border-rise flex items-center justify-center hover:bg-bg-card" aria-label="Scroll left">
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <button onClick={() => scroll(1)} className="w-8 h-8 rounded-full bg-bg-surface border border-rise flex items-center justify-center hover:bg-bg-card" aria-label="Scroll right">
+            <ChevronRight className="w-4 h-4" />
+          </button>
+          <Link to="/shorts" className="text-xs font-bold uppercase tracking-wider text-text-secondary hover:text-text-primary ml-1">See all</Link>
+        </div>
+      </div>
+      <div ref={railRef} className="flex gap-3 overflow-x-auto scrollbar-none snap-x snap-mandatory" style={{ scrollbarWidth: "none" }}>
+        {shorts.map((s: any) => {
+          const p = Array.isArray(s.profiles) ? s.profiles[0] : s.profiles;
+          return (
+            <Link
+              key={s.id}
+              to="/shorts"
+              search={{ id: s.id } as any}
+              className="relative shrink-0 snap-start w-[160px] sm:w-[180px] aspect-[9/16] rounded-xl overflow-hidden bg-bg-surface border border-rise group"
+            >
+              {s.thumbnail_url ? (
+                <img src={s.thumbnail_url} alt={s.title} className="w-full h-full object-cover" loading="lazy" />
+              ) : (
+                <video src={s.video_url} muted playsInline preload="metadata" className="w-full h-full object-cover" />
+              )}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-transparent" />
+              <div className="absolute inset-x-0 bottom-0 p-2.5">
+                <div className="text-white text-xs font-bold line-clamp-2 leading-tight">{s.title}</div>
+                <div className="mt-1 flex items-center gap-1.5 text-[10px] text-white/80 font-stat">
+                  <Play className="w-3 h-3 fill-white" />
+                  <span>{formatK(s.view_count ?? 0)}</span>
+                  {p && <span className="truncate ml-1">@{p.username}</span>}
+                </div>
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
