@@ -112,29 +112,32 @@ function FeedPage() {
     },
   });
 
-  // personalization signals: liked categories + followed creator ids
+  // personalization signals: per-category + per-creator affinity scores
   const { data: signals } = useQuery({
     queryKey: ["feed-signals", user?.id],
     enabled: !!user,
     queryFn: async () => {
-      const [{ data: likes }, { data: views }, { data: follows }] = await Promise.all([
-        supabase.from("video_likes").select("videos(category, user_id)").eq("user_id", user!.id).limit(100),
-        supabase.from("video_views").select("videos(category, user_id)").eq("user_id", user!.id).order("created_at", { ascending: false }).limit(100),
+      const [{ data: likes }, { data: views }, { data: saves }, { data: follows }] = await Promise.all([
+        supabase.from("video_likes").select("videos(category, user_id)").eq("user_id", user!.id).limit(200),
+        supabase.from("video_views").select("videos(category, user_id)").eq("user_id", user!.id).order("created_at", { ascending: false }).limit(300),
+        supabase.from("video_saves").select("videos(category, user_id)").eq("user_id", user!.id).limit(100),
         supabase.from("follows").select("following_id").eq("follower_id", user!.id),
       ]);
       const catScore = new Map<string, number>();
-      const creatorSet = new Set<string>((follows ?? []).map((f: any) => f.following_id));
+      const creatorScore = new Map<string, number>();
+      (follows ?? []).forEach((f: any) => creatorScore.set(f.following_id, (creatorScore.get(f.following_id) ?? 0) + 5));
       const bump = (rows: any[] | null, weight: number) => {
         (rows ?? []).forEach((r: any) => {
           const v = Array.isArray(r.videos) ? r.videos[0] : r.videos;
           if (!v) return;
           if (v.category) catScore.set(v.category, (catScore.get(v.category) ?? 0) + weight);
-          if (v.user_id) creatorSet.add(v.user_id);
+          if (v.user_id) creatorScore.set(v.user_id, (creatorScore.get(v.user_id) ?? 0) + weight);
         });
       };
+      bump(views, 1);   // most watched carries the most cumulative weight
       bump(likes, 3);
-      bump(views, 1);
-      return { catScore, creatorSet };
+      bump(saves, 4);
+      return { catScore, creatorScore };
     },
   });
 
