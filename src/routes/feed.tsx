@@ -548,6 +548,20 @@ function StreakBars({ current }: { current: number }) {
   );
 }
 
+type Signals = { catScore: Map<string, number>; creatorScore: Map<string, number> } | undefined;
+function scoreVideo(v: any, signals: Signals) {
+  const hours = Math.max(1, (Date.now() - new Date(v.created_at).getTime()) / 36e5);
+  const engagement = Math.log10((v.view_count ?? 0) + 1) * 0.5 + Math.log10((v.like_count ?? 0) + 1) * 1.1;
+  const freshness = Math.exp(-hours / 48) * 1.5;
+  const catAffinity = (signals?.catScore.get(v.category) ?? 0);
+  const creatorAffinity = (signals?.creatorScore.get(v.user_id) ?? 0);
+  // Heavy personalization: what the user watches most floats to the top
+  const catBoost = Math.log10(catAffinity + 1) * 2.5;
+  const creatorBoost = Math.log10(creatorAffinity + 1) * 3.0;
+  const jitter = Math.random() * 0.25;
+  return engagement + freshness + catBoost + creatorBoost + jitter;
+}
+
 function fmtDuration(s: number | null | undefined) {
   if (!s) return "0:00";
   const m = Math.floor(s / 60);
