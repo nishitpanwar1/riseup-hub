@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Heart, Bookmark, Share2, ChevronLeft, Eye, Flame, MessageCircle, Send } from "lucide-react";
 import toast from "react-hot-toast";
 import { AppHeader } from "@/components/AppHeader";
+import { UserAvatar } from "@/components/UserAvatar";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { checkInStreak } from "@/lib/streak.functions";
@@ -46,6 +47,11 @@ function WatchPage() {
       .channel(`watch-${id}`)
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "videos", filter: `id=eq.${id}` }, () => qc.invalidateQueries({ queryKey: ["watch", id] }))
       .on("postgres_changes", { event: "*", schema: "public", table: "video_comments", filter: `video_id=eq.${id}` }, () => qc.invalidateQueries({ queryKey: ["comments", id] }))
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles" }, (payload) => {
+        const row: any = payload.new;
+        qc.setQueryData(["watch", id], (old: any) => old?.user_id === row.id ? { ...old, profiles: { username: row.username, display_name: row.display_name, avatar_url: row.avatar_url, creator_tier: row.creator_tier, follower_count: row.follower_count } } : old);
+        qc.setQueryData(["comments", id], (old: any) => Array.isArray(old) ? old.map((c: any) => c.user_id === row.id ? { ...c, profiles: { username: row.username, display_name: row.display_name, avatar_url: row.avatar_url } } : c) : old);
+      })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [id, qc]);
@@ -154,9 +160,7 @@ function WatchPage() {
             <h1 className="font-display font-black text-2xl uppercase leading-tight">{video.title}</h1>
             {profile && (
               <Link to="/$username" params={{ username: profile.username }} className="mt-2 inline-flex items-center gap-2 group">
-                <div className="w-9 h-9 rounded-full bg-bg-surface border border-brand-purple flex items-center justify-center font-bold">
-                  {profile.display_name?.[0]?.toUpperCase() ?? "?"}
-                </div>
+                <UserAvatar src={profile.avatar_url} name={profile.display_name ?? profile.username} />
                 <div>
                   <div className="font-semibold group-hover:text-brand-purple">@{profile.username}</div>
                   <div className="text-xs text-text-tertiary font-stat">{profile.follower_count ?? 0} followers</div>
@@ -187,7 +191,15 @@ function WatchPage() {
             <button onClick={postComment} className="btn-primary py-2 px-4 inline-flex items-center gap-2"><Send className="w-4 h-4" /> Post</button>
           </div>
           <div className="space-y-3">
-            {comments.map((c: any) => <div key={c.id} className="border-t border-rise pt-3"><p className="text-sm font-bold">@{c.profiles?.username ?? "user"}</p><p className="text-sm text-text-secondary whitespace-pre-wrap">{c.body}</p></div>)}
+            {comments.map((c: any) => (
+              <div key={c.id} className="border-t border-rise pt-3 flex gap-2">
+                <UserAvatar src={c.profiles?.avatar_url} name={c.profiles?.display_name ?? c.profiles?.username} className="w-8 h-8" />
+                <div className="min-w-0">
+                  <p className="text-sm font-bold">@{c.profiles?.username ?? "user"}</p>
+                  <p className="text-sm text-text-secondary whitespace-pre-wrap break-words">{c.body}</p>
+                </div>
+              </div>
+            ))}
             {comments.length === 0 && <p className="text-sm text-text-tertiary">No comments yet.</p>}
           </div>
         </section>

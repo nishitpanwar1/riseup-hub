@@ -90,8 +90,15 @@ function RootShell({ children }: { children: React.ReactNode }) {
 function AuthSync() {
   const qc = useQueryClient();
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
-      qc.invalidateQueries();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
+      if (event === "SIGNED_OUT") {
+        qc.removeQueries();
+        return;
+      }
+      qc.invalidateQueries({ queryKey: ["my-profile"] });
+      qc.invalidateQueries({ queryKey: ["my-streak"] });
+      qc.invalidateQueries({ queryKey: ["my-tokens"] });
     });
     return () => subscription.unsubscribe();
   }, [qc]);

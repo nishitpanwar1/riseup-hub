@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Heart, MessageCircle, Share2, Repeat2, Flame, Play, Volume2, VolumeX, ChevronLeft, LogOut } from "lucide-react";
 import toast from "react-hot-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -46,6 +46,8 @@ function ShortsPage() {
   const itemRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const restoredRef = useRef(false);
   const seenIds = useRef<Set<string>>(new Set());
+  const itemIdsKey = useMemo(() => items.map(i => i.id).join(","), [items]);
+  const activeIndex = useMemo(() => items.findIndex(x => x.id === activeId), [items, activeId]);
 
   // initial load
   useEffect(() => {
@@ -105,12 +107,28 @@ function ShortsPage() {
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "videos" }, (payload) => {
         const row: any = payload.new;
         if (!row) return;
-        setItems(prev => prev.map(s => s.id === row.id ? { ...s, like_count: row.like_count, save_count: row.save_count, view_count: row.view_count, comment_count: row.comment_count } : s));
+        setItems(prev => {
+          let changed = false;
+          const next = prev.map(s => {
+            if (s.id !== row.id) return s;
+            changed = true;
+            return { ...s, like_count: row.like_count, save_count: row.save_count, view_count: row.view_count, comment_count: row.comment_count };
+          });
+          return changed ? next : prev;
+        });
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles" }, (payload) => {
         const row: any = payload.new;
         if (!row) return;
-        setItems(prev => prev.map(s => s.user_id === row.id && s.profiles ? { ...s, profiles: { ...s.profiles, username: row.username, display_name: row.display_name, avatar_url: row.avatar_url, creator_tier: row.creator_tier } } : s));
+        setItems(prev => {
+          let changed = false;
+          const next = prev.map(s => {
+            if (s.user_id !== row.id || !s.profiles) return s;
+            changed = true;
+            return { ...s, profiles: { ...s.profiles, username: row.username, display_name: row.display_name, avatar_url: row.avatar_url, creator_tier: row.creator_tier } };
+          });
+          return changed ? next : prev;
+        });
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -155,8 +173,8 @@ function ShortsPage() {
   const [commentsOpenFor, setCommentsOpenFor] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user || items.length === 0) return;
-    const ids = items.map(i => i.id);
+    if (!user || !itemIdsKey) return;
+    const ids = itemIdsKey.split(",").filter(Boolean);
     (async () => {
       const { data } = await supabase.from("video_likes").select("video_id").eq("user_id", user.id).in("video_id", ids);
       if (data) setMyLikes(prev => {
@@ -165,7 +183,11 @@ function ShortsPage() {
         return next;
       });
     })();
-  }, [user, items]);
+  }, [user?.id, itemIdsKey]);
+
+  const handleVisible = useCallback((id: string) => {
+    setActiveId(prev => prev === id ? prev : id);
+  }, []);
 
   const toggleLike = useCallback(async (videoId: string) => {
     if (!user) return toast.error("Sign in to like");
@@ -255,8 +277,7 @@ function ShortsPage() {
         style={{ scrollSnapType: "y mandatory", overscrollBehavior: "contain" }}
       >
         {items.map((s, i) => {
-          const activeIdx = items.findIndex(x => x.id === activeId);
-          const anchor = activeIdx === -1 ? 0 : activeIdx;
+          const anchor = activeIndex === -1 ? 0 : activeIndex;
           // Mount active + neighbors so the next short is already buffered (no swipe lag).
           const mount = Math.abs(i - anchor) <= 1;
           return (
@@ -267,8 +288,9 @@ function ShortsPage() {
               volume={volume}
               isActive={activeId === s.id}
               shouldMount={mount}
-              onVisible={() => setActiveId(s.id)}
+              onVisible={handleVisible}
               signedIn={!!user}
+              userId={user?.id ?? null}
               registerRef={registerRef}
               nav={nav}
               liked={myLikes.has(s.id)}
@@ -300,8 +322,8 @@ function ShortsPage() {
 }
 
 function ShortItem({
-  short, muted, volume, isActive, shouldMount, onVisible, signedIn, registerRef, nav, liked, shareCount, onLike, onShare, onOpenComments,
-}: { short: Short; muted: boolean; volume: number; isActive: boolean; shouldMount: boolean; onVisible: () => void; signedIn: boolean; registerRef: (id: string, el: HTMLDivElement | null) => void; nav: ReturnType<typeof useNavigate>; liked: boolean; shareCount: number; onLike: () => void; onShare: () => void; onOpenComments: () => void }) {
+  short, muted, volume, isActive, shouldMount, onVisible, signedIn, userId, registerRef, nav, liked, shareCount, onLike, onShare, onOpenComments,
+}: { short: Short; muted: boolean; volume: number; isActive: boolean; shouldMount: boolean; onVisible: (id: string) => void; signedIn: boolean; userId: string | null; registerRef: (id: string, el: HTMLDivElement | null) => void; nav: ReturnType<typeof useNavigate>; liked: boolean; shareCount: number; onLike: () => void; onShare: () => void; onOpenComments: () => void }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const progressRef = useRef<HTMLDivElement>(null);
@@ -315,7 +337,7 @@ function ShortItem({
     const io = new IntersectionObserver(
       (entries) => {
         for (const e of entries) {
-          if (e.isIntersecting && e.intersectionRatio >= 0.6) onVisible();
+          if (e.isIntersecting && e.intersectionRatio >= 0.6) onVisible(short.id);
         }
       },
       { threshold: [0, 0.6, 1] }
@@ -344,16 +366,19 @@ function ShortItem({
         v.muted = true;
         v.play().catch(() => {});
       });
+      let timer: number | undefined;
       if (!viewedRef.current) {
-        viewedRef.current = true;
-        supabase.auth.getUser().then(({ data }) => {
-          supabase.from("video_views").insert({ video_id: short.id, user_id: data.user?.id ?? null, seconds_watched: 0, total_seconds: Math.round(v.duration || 0) }).then(() => {});
-        });
+        timer = window.setTimeout(() => {
+          if (!videoRef.current || videoRef.current.paused || viewedRef.current) return;
+          viewedRef.current = true;
+          supabase.from("video_views").insert({ video_id: short.id, user_id: userId, seconds_watched: Math.round(videoRef.current.currentTime || 2), total_seconds: Math.round(videoRef.current.duration || 0) }).then(() => {});
+        }, 1800);
       }
+      return () => { if (timer) window.clearTimeout(timer); };
     } else {
       v.pause();
     }
-  }, [isActive, shouldMount]);
+  }, [isActive, shouldMount, short.id, userId]);
 
   const handleTap = () => {
     const v = videoRef.current;
@@ -382,7 +407,7 @@ function ShortItem({
             loop
             muted={muted}
             playsInline
-            preload="auto"
+            preload={isActive ? "auto" : "metadata"}
             onClick={handleTap}
             onTimeUpdate={(e) => {
               const v = e.currentTarget;

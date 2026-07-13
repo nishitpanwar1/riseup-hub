@@ -61,6 +61,17 @@ export function ShortsComments({ videoId, onClose }: { videoId: string; onClose:
           setComments((prev) => prev.filter((c) => c.id !== old.id));
         }
       )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "profiles" },
+        (payload) => {
+          const row: any = payload.new;
+          setComments((prev) => prev.map((c) => c.user_id === row.id ? {
+            ...c,
+            profiles: { username: row.username, display_name: row.display_name, avatar_url: row.avatar_url },
+          } : c));
+        }
+      )
       .subscribe();
     return () => {
       alive = false;

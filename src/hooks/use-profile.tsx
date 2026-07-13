@@ -37,6 +37,9 @@ export function useMyProfile() {
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["my-profile", user?.id] });
     if (q.data?.username) qc.invalidateQueries({ queryKey: ["profile", q.data.username] });
+    qc.invalidateQueries({ queryKey: ["leaders"] });
+    qc.invalidateQueries({ queryKey: ["subscribed"] });
+    qc.invalidateQueries({ queryKey: ["my-rank", user?.id] });
   };
   return { ...q, invalidate };
 }

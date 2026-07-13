@@ -24,7 +24,7 @@ export function AppHeader() {
       if (!q.trim() && !current) return;
       if (pathname !== "/feed" && !q.trim()) return;
       nav({ to: "/feed", search: (prev: any) => ({ ...prev, q: q || undefined }) as any });
-    }, 200);
+    }, 450);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q]);
