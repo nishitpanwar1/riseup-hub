@@ -1,9 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { ShoppingBag, Tag, Plus, Coins } from "lucide-react";
 import toast from "react-hot-toast";
 import { AppHeader } from "@/components/AppHeader";
+import { UserAvatar } from "@/components/UserAvatar";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -13,6 +14,7 @@ export const Route = createFileRoute("/shop")({
 
 function ShopPage() {
   const { user } = useAuth();
+  const qc = useQueryClient();
   const { data: products = [], isLoading, refetch } = useQuery({
     queryKey: ["shop-products"],
     queryFn: async () => {
@@ -38,10 +40,22 @@ function ShopPage() {
 
   useEffect(() => {
     const ch = supabase.channel("shop-rt")
-      .on("postgres_changes", { event: "*", schema: "public", table: "digital_products" }, () => refetch())
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "digital_products" }, () => refetch())
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "digital_products" }, (payload) => {
+        const row: any = payload.new;
+        qc.setQueryData(["shop-products"], (old: any) => Array.isArray(old) ? old.map((p: any) => p.id === row.id ? { ...p, ...row, profiles: p.profiles } : p) : old);
+      })
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "digital_products" }, (payload) => {
+        const oldRow: any = payload.old;
+        qc.setQueryData(["shop-products"], (old: any) => Array.isArray(old) ? old.filter((p: any) => p.id !== oldRow.id) : old);
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles" }, (payload) => {
+        const row: any = payload.new;
+        qc.setQueryData(["shop-products"], (old: any) => Array.isArray(old) ? old.map((p: any) => p.user_id === row.id ? { ...p, profiles: { username: row.username, display_name: row.display_name, avatar_url: row.avatar_url } } : p) : old);
+      })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
-  }, [refetch]);
+  }, [qc, refetch]);
 
   return (
     <div className="min-h-screen bg-bg-primary text-text-primary">
@@ -122,8 +136,9 @@ function ProductCard({ product, onPurchased }: { product: any; onPurchased: () =
         <h3 className="font-display font-bold uppercase line-clamp-2">{product.title}</h3>
         {product.description && <p className="text-sm text-text-tertiary mt-1 line-clamp-2">{product.description}</p>}
         {profile && (
-          <Link to="/$username" params={{ username: profile.username }} className="mt-2 text-xs text-text-secondary hover:text-text-primary">
-            @{profile.username}
+          <Link to="/$username" params={{ username: profile.username }} className="mt-2 inline-flex items-center gap-2 text-xs text-text-secondary hover:text-text-primary">
+            <UserAvatar src={profile.avatar_url} name={profile.display_name ?? profile.username} className="w-6 h-6" />
+            <span>@{profile.username}</span>
           </Link>
         )}
         <div className="mt-auto pt-3 space-y-2">

@@ -1,12 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import toast from "react-hot-toast";
 import { Users, Flame, Plus } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
+import { UserAvatar } from "@/components/UserAvatar";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -34,7 +35,7 @@ function RoomsPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("accountability_rooms")
-        .select("*, profiles!accountability_rooms_creator_id_fkey(username, display_name)")
+        .select("*, profiles!accountability_rooms_creator_id_fkey(username, display_name, avatar_url)")
         .eq("is_active", true)
         .order("created_at", { ascending: false })
         .limit(50);
@@ -56,6 +57,22 @@ function RoomsPage() {
     onSuccess: () => { toast.success("Room created"); setOpen(false); reset(); qc.invalidateQueries({ queryKey: ["rooms"] }); },
     onError: (e: any) => toast.error(e.message),
   });
+
+  useEffect(() => {
+    const ch = supabase
+      .channel("rooms-list-rt")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "accountability_rooms" }, () => qc.invalidateQueries({ queryKey: ["rooms"] }))
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "accountability_rooms" }, (payload) => {
+        const row: any = payload.new;
+        qc.setQueryData(["rooms"], (old: any) => Array.isArray(old) ? old.map((r: any) => r.id === row.id ? { ...r, ...row, profiles: r.profiles } : r) : old);
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles" }, (payload) => {
+        const row: any = payload.new;
+        qc.setQueryData(["rooms"], (old: any) => Array.isArray(old) ? old.map((r: any) => r.creator_id === row.id ? { ...r, profiles: { username: row.username, display_name: row.display_name, avatar_url: row.avatar_url } } : r) : old);
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [qc]);
 
   return (
     <div className="min-h-screen bg-bg-primary text-text-primary">
@@ -98,7 +115,12 @@ function RoomsPage() {
                 </div>
                 <h3 className="font-display font-black text-xl uppercase leading-tight">{r.title}</h3>
                 {r.description && <p className="text-sm text-text-secondary mt-2 line-clamp-3">{r.description}</p>}
-                {r.profiles && <p className="text-xs text-text-tertiary mt-3">by @{r.profiles.username}</p>}
+                {r.profiles && (
+                  <div className="mt-3 flex items-center gap-2 text-xs text-text-tertiary">
+                    <UserAvatar src={r.profiles.avatar_url} name={r.profiles.display_name ?? r.profiles.username} className="w-6 h-6" />
+                    <span>by @{r.profiles.username}</span>
+                  </div>
+                )}
               </Link>
             ))}
           </div>
