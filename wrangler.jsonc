@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "riseup-spark",
+  "name": "riseuphub",
   "compatibility_date": "2026-06-12",
   "compatibility_flags": ["nodejs_compat"],
   "main": "dist/server/server.js",
