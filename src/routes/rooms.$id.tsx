@@ -1,11 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import toast from "react-hot-toast";
 import { Users, Flame, ArrowLeft, CheckCircle2, Circle } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
+import { UserAvatar } from "@/components/UserAvatar";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -25,7 +27,7 @@ function RoomPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("accountability_rooms")
-        .select("*, profiles!accountability_rooms_creator_id_fkey(username, display_name)")
+        .select("*, profiles!accountability_rooms_creator_id_fkey(username, display_name, avatar_url)")
         .eq("id", id).single();
       if (error) throw error;
       return data;
@@ -37,7 +39,7 @@ function RoomPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("room_checkins")
-        .select("*, profiles(username, display_name)")
+        .select("*, profiles(username, display_name, avatar_url)")
         .eq("room_id", id)
         .order("created_at", { ascending: false })
         .limit(50);
@@ -81,6 +83,23 @@ function RoomPage() {
     onError: (e: any) => toast.error(e.message),
   });
 
+  useEffect(() => {
+    const ch = supabase
+      .channel(`room-${id}-rt`)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "accountability_rooms", filter: `id=eq.${id}` }, (payload) => {
+        const row: any = payload.new;
+        qc.setQueryData(["room", id], (old: any) => old ? { ...old, ...row, profiles: old.profiles } : old);
+      })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "room_checkins", filter: `room_id=eq.${id}` }, () => qc.invalidateQueries({ queryKey: ["checkins", id] }))
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles" }, (payload) => {
+        const row: any = payload.new;
+        qc.setQueryData(["room", id], (old: any) => old?.creator_id === row.id ? { ...old, profiles: { username: row.username, display_name: row.display_name, avatar_url: row.avatar_url } } : old);
+        qc.setQueryData(["checkins", id], (old: any) => Array.isArray(old) ? old.map((c: any) => c.user_id === row.id ? { ...c, profiles: { username: row.username, display_name: row.display_name, avatar_url: row.avatar_url } } : c) : old);
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [id, qc]);
+
   if (!room) return <div className="min-h-screen bg-bg-primary"><AppHeader /><div className="p-8 text-text-secondary">Loading…</div></div>;
 
   return (
@@ -96,7 +115,12 @@ function RoomPage() {
           </div>
           <h1 className="text-3xl font-black uppercase">{room.title}</h1>
           {room.description && <p className="text-text-secondary mt-2">{room.description}</p>}
-          <p className="text-xs text-text-tertiary mt-3">by @{room.profiles?.username}</p>
+          {room.profiles && (
+            <div className="mt-3 flex items-center gap-2 text-xs text-text-tertiary">
+              <UserAvatar src={room.profiles.avatar_url} name={room.profiles.display_name ?? room.profiles.username} className="w-6 h-6" />
+              <span>by @{room.profiles.username}</span>
+            </div>
+          )}
           {!membership && user && (
             <button onClick={() => join.mutate()} className="btn-primary mt-4">Join challenge</button>
           )}
@@ -121,7 +145,10 @@ function RoomPage() {
               {checkins?.map((c: any) => (
                 <div key={c.id} className="card-rise p-4">
                   <div className="flex items-center justify-between text-xs text-text-tertiary mb-2">
-                    <span className="font-semibold text-text-secondary">@{c.profiles?.username}</span>
+                    <span className="font-semibold text-text-secondary inline-flex items-center gap-2">
+                      <UserAvatar src={c.profiles?.avatar_url} name={c.profiles?.display_name ?? c.profiles?.username} className="w-6 h-6" />
+                      @{c.profiles?.username}
+                    </span>
                     <span className="font-stat">Day {c.day_number}</span>
                   </div>
                   <p className="text-sm text-text-primary whitespace-pre-wrap">{c.content}</p>

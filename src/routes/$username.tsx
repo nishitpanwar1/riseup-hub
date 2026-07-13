@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ResponsiveContainer, AreaChart, Area, XAxis, Tooltip, CartesianGrid } from "recharts";
 import { Flame, BadgeCheck, Eye, Users } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
+import { UserAvatar } from "@/components/UserAvatar";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -70,9 +71,7 @@ function ProfilePage() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
         <div className="card-rise p-6 sm:p-8">
           <div className="flex items-start gap-5 flex-wrap">
-            <div className="w-20 h-20 rounded-full bg-bg-surface border-2 border-brand-purple flex items-center justify-center text-3xl font-black">
-              {profile.display_name[0]?.toUpperCase()}
-            </div>
+            <UserAvatar src={profile.avatar_url} name={profile.display_name ?? profile.username} className="w-20 h-20 text-3xl border-2 border-brand-purple" />
             <div className="flex-1 min-w-0">
               <h1 className="text-3xl font-black uppercase flex items-center gap-2">
                 {profile.display_name}

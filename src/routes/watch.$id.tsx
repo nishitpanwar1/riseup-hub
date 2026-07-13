@@ -191,7 +191,15 @@ function WatchPage() {
             <button onClick={postComment} className="btn-primary py-2 px-4 inline-flex items-center gap-2"><Send className="w-4 h-4" /> Post</button>
           </div>
           <div className="space-y-3">
-            {comments.map((c: any) => <div key={c.id} className="border-t border-rise pt-3"><p className="text-sm font-bold">@{c.profiles?.username ?? "user"}</p><p className="text-sm text-text-secondary whitespace-pre-wrap">{c.body}</p></div>)}
+            {comments.map((c: any) => (
+              <div key={c.id} className="border-t border-rise pt-3 flex gap-2">
+                <UserAvatar src={c.profiles?.avatar_url} name={c.profiles?.display_name ?? c.profiles?.username} className="w-8 h-8" />
+                <div className="min-w-0">
+                  <p className="text-sm font-bold">@{c.profiles?.username ?? "user"}</p>
+                  <p className="text-sm text-text-secondary whitespace-pre-wrap break-words">{c.body}</p>
+                </div>
+              </div>
+            ))}
             {comments.length === 0 && <p className="text-sm text-text-tertiary">No comments yet.</p>}
           </div>
         </section>
