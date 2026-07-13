@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Flame, Home, Compass, Users, Swords, User as UserIcon, History as HistoryIcon, Heart, Clock, Trophy, ShoppingBag, BarChart3, Play, ChevronLeft, ChevronRight } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
+import { UserAvatar } from "@/components/UserAvatar";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -56,8 +57,26 @@ function FeedPage() {
   useEffect(() => {
     const ch = supabase
       .channel("videos-feed")
-      .on("postgres_changes", { event: "*", schema: "public", table: "videos" }, () => {
-        qc.invalidateQueries({ queryKey: ["feed"] });
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "videos" }, (payload) => {
+        const row: any = payload.new;
+        if (!row || row.status !== "active") return;
+        qc.invalidateQueries({ queryKey: [row.is_short ? "feed-shorts" : "feed"] });
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "videos" }, (payload) => {
+        const row: any = payload.new;
+        if (!row?.id) return;
+        const patch = (old: any) => Array.isArray(old) ? old.map((v: any) => v.id === row.id ? { ...v, like_count: row.like_count, view_count: row.view_count, comment_count: row.comment_count, save_count: row.save_count } : v) : old;
+        qc.setQueriesData({ queryKey: ["feed"] }, patch);
+        qc.setQueriesData({ queryKey: ["feed-shorts"] }, patch);
+      })
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "videos" }, (payload) => {
+        const old: any = payload.old;
+        const remove = (rows: any) => Array.isArray(rows) ? rows.filter((v: any) => v.id !== old?.id) : rows;
+        qc.setQueriesData({ queryKey: ["feed"] }, remove);
+        qc.setQueriesData({ queryKey: ["feed-shorts"] }, remove);
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles" }, (payload) => {
+        applyProfileUpdate(qc, payload.new);
       })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
@@ -90,7 +109,7 @@ function FeedPage() {
       const { data: follows } = await supabase.from("follows").select("following_id").eq("follower_id", user!.id).limit(20);
       const ids = (follows ?? []).map((f: any) => f.following_id);
       if (ids.length === 0) return [];
-      const { data } = await supabase.from("profiles").select("id, username, display_name").in("id", ids);
+      const { data } = await supabase.from("profiles").select("id, username, display_name, avatar_url").in("id", ids);
       return data ?? [];
     },
   });
@@ -213,7 +232,7 @@ function FeedPage() {
     queryFn: async () => {
       const { data } = await supabase
         .from("profiles")
-        .select("id, username, display_name, total_views, follower_count, creator_tier")
+        .select("id, username, display_name, avatar_url, total_views, follower_count, creator_tier")
         .order("follower_count", { ascending: false })
         .limit(5);
       return data ?? [];
@@ -225,7 +244,7 @@ function FeedPage() {
     queryKey: ["my-rank", user?.id],
     enabled: !!user,
     queryFn: async () => {
-      const { data: me } = await supabase.from("profiles").select("username, display_name, follower_count").eq("id", user!.id).maybeSingle();
+      const { data: me } = await supabase.from("profiles").select("id, username, display_name, avatar_url, follower_count").eq("id", user!.id).maybeSingle();
       if (!me) return null;
       const { count } = await supabase.from("profiles").select("id", { count: "exact", head: true }).gt("follower_count", me.follower_count ?? 0);
       return { ...me, rank: (count ?? 0) + 1 };
@@ -288,9 +307,7 @@ function FeedPage() {
                   params={{ username: s.username }}
                   className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-semibold text-text-secondary hover:text-text-primary hover:bg-bg-surface/60"
                 >
-                  <span className="w-6 h-6 rounded-full bg-brand-purple flex items-center justify-center text-[10px] font-bold">
-                    {(s.display_name ?? s.username).slice(0,2).toUpperCase()}
-                  </span>
+                  <UserAvatar src={s.avatar_url} name={s.display_name ?? s.username} className="w-6 h-6" />
                   <span className="truncate">{s.display_name ?? s.username}</span>
                 </Link>
               ))}
@@ -372,9 +389,7 @@ function FeedPage() {
                 <li key={l.id}>
                   <Link to="/$username" params={{ username: l.username }} className="flex items-center gap-3 p-2 rounded-lg hover:bg-bg-surface">
                     <span className={`font-stat font-black w-5 text-sm ${i === 0 ? "text-accent-gold" : i === 1 ? "text-text-secondary" : i === 2 ? "text-brand-orange" : "text-text-tertiary"}`}>{i + 1}</span>
-                    <div className="w-9 h-9 rounded-full bg-bg-surface border border-rise flex items-center justify-center font-bold text-xs">
-                      {(l.display_name ?? l.username)?.slice(0, 2).toUpperCase()}
-                    </div>
+                    <UserAvatar src={l.avatar_url} name={l.display_name ?? l.username} />
                     <div className="flex-1 min-w-0">
                       <div className="font-semibold truncate text-sm">{l.display_name ?? l.username}</div>
                       <div className="text-xs text-text-tertiary font-stat">{l.follower_count ?? 0} followers</div>
@@ -387,9 +402,7 @@ function FeedPage() {
                 <li className="border-t border-rise pt-2 mt-2">
                   <div className="flex items-center gap-3 p-2 rounded-lg bg-bg-surface">
                     <span className="font-stat font-black w-5 text-sm text-text-tertiary">{myRank.rank}</span>
-                    <div className="w-9 h-9 rounded-full bg-brand-purple flex items-center justify-center font-bold text-xs">
-                      {(myRank.display_name ?? myRank.username)?.slice(0, 2).toUpperCase()}
-                    </div>
+                    <UserAvatar src={myRank.avatar_url} name={myRank.display_name ?? myRank.username} />
                     <div className="flex-1 min-w-0">
                       <div className="font-semibold truncate text-sm">You ({myRank.username})</div>
                       <div className="text-xs text-text-tertiary font-stat">{myRank.follower_count ?? 0} followers</div>
@@ -508,9 +521,7 @@ function VideoCard({ video }: { video: any }) {
         <span className="absolute bottom-2 right-2 text-xs px-2 py-0.5 rounded bg-black/70 font-stat">{fmtDuration(video.duration)}</span>
       </div>
       <div className="p-3 flex gap-3">
-        <div className="w-9 h-9 rounded-full bg-bg-surface border border-rise flex items-center justify-center font-bold text-xs shrink-0">
-          {(profile?.display_name ?? profile?.username ?? "?").slice(0, 2).toUpperCase()}
-        </div>
+        <UserAvatar src={profile?.avatar_url} name={profile?.display_name ?? profile?.username} />
         <div className="min-w-0 flex-1">
           <h3 className="font-bold leading-snug line-clamp-2 text-sm">{video.title}</h3>
           {profile && <div className="text-xs text-text-secondary mt-1">{profile.display_name ?? profile.username}</div>}
@@ -555,6 +566,22 @@ function scoreVideo(v: any, signals: Signals) {
   const creatorBoost = Math.log10(creatorAffinity + 1) * 3.0;
   const jitter = Math.random() * 0.25;
   return engagement + freshness + catBoost + creatorBoost + jitter;
+}
+
+function patchProfileInVideo(video: any, row: any) {
+  if (!video || video.user_id !== row.id) return video;
+  const current = Array.isArray(video.profiles) ? video.profiles[0] : video.profiles;
+  return { ...video, profiles: { ...(current ?? {}), username: row.username, display_name: row.display_name, avatar_url: row.avatar_url, creator_tier: row.creator_tier } };
+}
+
+function applyProfileUpdate(qc: ReturnType<typeof useQueryClient>, row: any) {
+  if (!row?.id) return;
+  const patchVideoRows = (old: any) => Array.isArray(old) ? old.map((v: any) => patchProfileInVideo(v, row)) : old;
+  qc.setQueriesData({ queryKey: ["feed"] }, patchVideoRows);
+  qc.setQueriesData({ queryKey: ["feed-shorts"] }, patchVideoRows);
+  qc.setQueriesData({ queryKey: ["subscribed"] }, (old: any) => Array.isArray(old) ? old.map((p: any) => p.id === row.id ? { ...p, username: row.username, display_name: row.display_name, avatar_url: row.avatar_url } : p) : old);
+  qc.setQueryData(["leaders"], (old: any) => Array.isArray(old) ? old.map((p: any) => p.id === row.id ? { ...p, username: row.username, display_name: row.display_name, avatar_url: row.avatar_url, follower_count: row.follower_count, total_views: row.total_views } : p) : old);
+  qc.setQueriesData({ queryKey: ["my-rank"] }, (old: any) => old?.id === row.id ? { ...old, username: row.username, display_name: row.display_name, avatar_url: row.avatar_url, follower_count: row.follower_count } : old);
 }
 
 function fmtDuration(s: number | null | undefined) {
