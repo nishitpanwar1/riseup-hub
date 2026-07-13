@@ -107,12 +107,28 @@ function ShortsPage() {
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "videos" }, (payload) => {
         const row: any = payload.new;
         if (!row) return;
-        setItems(prev => prev.map(s => s.id === row.id ? { ...s, like_count: row.like_count, save_count: row.save_count, view_count: row.view_count, comment_count: row.comment_count } : s));
+        setItems(prev => {
+          let changed = false;
+          const next = prev.map(s => {
+            if (s.id !== row.id) return s;
+            changed = true;
+            return { ...s, like_count: row.like_count, save_count: row.save_count, view_count: row.view_count, comment_count: row.comment_count };
+          });
+          return changed ? next : prev;
+        });
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles" }, (payload) => {
         const row: any = payload.new;
         if (!row) return;
-        setItems(prev => prev.map(s => s.user_id === row.id && s.profiles ? { ...s, profiles: { ...s.profiles, username: row.username, display_name: row.display_name, avatar_url: row.avatar_url, creator_tier: row.creator_tier } } : s));
+        setItems(prev => {
+          let changed = false;
+          const next = prev.map(s => {
+            if (s.user_id !== row.id || !s.profiles) return s;
+            changed = true;
+            return { ...s, profiles: { ...s.profiles, username: row.username, display_name: row.display_name, avatar_url: row.avatar_url, creator_tier: row.creator_tier } };
+          });
+          return changed ? next : prev;
+        });
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
