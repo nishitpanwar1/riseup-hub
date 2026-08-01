@@ -36,6 +36,15 @@ function WatchPage() {
     },
   });
 
+  // Quality ladder produced by the in-browser encoder at upload time.
+  const renditions = useMemo(() => parseRenditions((video as any)?.renditions), [video]);
+  const activeSrc = useMemo(() => {
+    const fallback = (video as any)?.video_url ?? "";
+    if (!renditions.length) return fallback;
+    if (quality === "auto") return pickRendition(renditions, fallback);
+    return renditions.find((r) => String(r.height) === quality)?.url ?? fallback;
+  }, [renditions, quality, video]);
+
   // if the video is a short, send the user to the shorts feed instead
   useEffect(() => {
     if (video?.is_short) {
