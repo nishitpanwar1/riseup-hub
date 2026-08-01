@@ -288,14 +288,34 @@ function UploadPage() {
             <input {...register("tags")} placeholder="cold, discipline, morning" className="w-full px-3 py-2.5" />
           </Field>
 
+          <div className="rounded-xl border border-rise bg-bg-surface p-4">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={optimize}
+                onChange={(e) => setOptimize(e.target.checked)}
+                className="mt-1 w-4 h-4 accent-brand-orange"
+              />
+              <span className="flex-1">
+                <span className="font-bold text-sm block">Optimise quality ladder (free, in your browser)</span>
+                <span className="text-xs text-text-tertiary block mt-0.5">
+                  Encodes 360p / 720p / 1080p H.264 with fast-start so viewers get instant playback and
+                  can pick a quality. Slower to publish, and skipped for files over 600&nbsp;MB.
+                  {probe && ` Planned: ${planLadder(probe.width, probe.height).map(p => `${p}p`).join(" · ")}`}
+                </span>
+              </span>
+            </label>
+          </div>
+
           {progress > 0 && (
             <div>
               <div className="h-2 rounded-full bg-bg-surface overflow-hidden">
                 <div className="h-full bg-brand-orange transition-all" style={{ width: `${progress}%` }} />
               </div>
-              <p className="text-xs text-text-tertiary mt-1 font-stat">{progress}%</p>
+              <p className="text-xs text-text-tertiary mt-1 font-stat">{stage ? `${stage} · ` : ""}{progress}%</p>
             </div>
           )}
+
 
           <button disabled={isSubmitting || !file} type="submit" className="btn-primary w-full inline-flex items-center justify-center gap-2 disabled:opacity-40">
             <Upload className="w-4 h-4" /> {isSubmitting ? "Uploading…" : `Publish ${mode === "short" ? "short" : "video"}`}
