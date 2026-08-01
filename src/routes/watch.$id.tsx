@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Heart, Bookmark, Share2, ChevronLeft, Eye, Flame, MessageCircle, Send } from "lucide-react";
 import toast from "react-hot-toast";
 import { AppHeader } from "@/components/AppHeader";
@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { checkInStreak } from "@/lib/streak.functions";
 import { resolveVideoSrc } from "@/lib/video-url";
+import { parseRenditions, pickRendition, type Rendition } from "@/lib/transcode";
 
 export const Route = createFileRoute("/watch/$id")({
   component: WatchPage,
@@ -42,7 +43,7 @@ function WatchPage() {
     const fallback = (video as any)?.video_url ?? "";
     if (!renditions.length) return fallback;
     if (quality === "auto") return pickRendition(renditions, fallback);
-    return renditions.find((r) => String(r.height) === quality)?.url ?? fallback;
+    return renditions.find((r: Rendition) => String(r.height) === quality)?.url ?? fallback;
   }, [renditions, quality, video]);
 
   // if the video is a short, send the user to the shorts feed instead
@@ -176,7 +177,7 @@ function WatchPage() {
             >
               Auto
             </button>
-            {[...renditions].sort((a, b) => a.height - b.height).map((r) => (
+            {[...renditions].sort((a: Rendition, b: Rendition) => a.height - b.height).map((r: Rendition) => (
               <button
                 key={r.height}
                 onClick={() => setQuality(String(r.height))}
