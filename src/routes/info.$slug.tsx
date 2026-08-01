@@ -1,7 +1,7 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { AppHeader } from "@/components/AppHeader";
 import { SiteFooterLinks } from "@/components/SiteFooterLinks";
-import { INFO_ORDER, INFO_PAGES } from "@/lib/info-content";
+import { INFO_ORDER, INFO_PAGES, type InfoPage } from "@/lib/info-content";
 
 export const Route = createFileRoute("/info/$slug")({
   loader: ({ params }) => {
@@ -39,7 +39,7 @@ export const Route = createFileRoute("/info/$slug")({
 });
 
 function InfoPageView() {
-  const { page } = Route.useLoaderData();
+  const { page } = Route.useLoaderData() as { page: InfoPage };
   const { slug } = Route.useParams();
 
   return (

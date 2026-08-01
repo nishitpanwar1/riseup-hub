@@ -24,6 +24,7 @@ import { Route as WatchIdRouteImport } from './routes/watch.$id'
 import { Route as StudioUploadRouteImport } from './routes/studio.upload'
 import { Route as StudioShopRouteImport } from './routes/studio.shop'
 import { Route as RoomsIdRouteImport } from './routes/rooms.$id'
+import { Route as InfoSlugRouteImport } from './routes/info.$slug'
 import { Route as ApiVideoRouteImport } from './routes/api/video'
 
 const StudioRoute = StudioRouteImport.update({
@@ -101,6 +102,11 @@ const RoomsIdRoute = RoomsIdRouteImport.update({
   path: '/rooms/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const InfoSlugRoute = InfoSlugRouteImport.update({
+  id: '/info/$slug',
+  path: '/info/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiVideoRoute = ApiVideoRouteImport.update({
   id: '/api/video',
   path: '/api/video',
@@ -119,6 +125,7 @@ export interface FileRoutesByFullPath {
   '/shorts': typeof ShortsRoute
   '/studio': typeof StudioRouteWithChildren
   '/api/video': typeof ApiVideoRoute
+  '/info/$slug': typeof InfoSlugRoute
   '/rooms/$id': typeof RoomsIdRoute
   '/studio/shop': typeof StudioShopRoute
   '/studio/upload': typeof StudioUploadRoute
@@ -137,6 +144,7 @@ export interface FileRoutesByTo {
   '/shorts': typeof ShortsRoute
   '/studio': typeof StudioRouteWithChildren
   '/api/video': typeof ApiVideoRoute
+  '/info/$slug': typeof InfoSlugRoute
   '/rooms/$id': typeof RoomsIdRoute
   '/studio/shop': typeof StudioShopRoute
   '/studio/upload': typeof StudioUploadRoute
@@ -156,6 +164,7 @@ export interface FileRoutesById {
   '/shorts': typeof ShortsRoute
   '/studio': typeof StudioRouteWithChildren
   '/api/video': typeof ApiVideoRoute
+  '/info/$slug': typeof InfoSlugRoute
   '/rooms/$id': typeof RoomsIdRoute
   '/studio/shop': typeof StudioShopRoute
   '/studio/upload': typeof StudioUploadRoute
@@ -176,6 +185,7 @@ export interface FileRouteTypes {
     | '/shorts'
     | '/studio'
     | '/api/video'
+    | '/info/$slug'
     | '/rooms/$id'
     | '/studio/shop'
     | '/studio/upload'
@@ -194,6 +204,7 @@ export interface FileRouteTypes {
     | '/shorts'
     | '/studio'
     | '/api/video'
+    | '/info/$slug'
     | '/rooms/$id'
     | '/studio/shop'
     | '/studio/upload'
@@ -212,6 +223,7 @@ export interface FileRouteTypes {
     | '/shorts'
     | '/studio'
     | '/api/video'
+    | '/info/$slug'
     | '/rooms/$id'
     | '/studio/shop'
     | '/studio/upload'
@@ -231,6 +243,7 @@ export interface RootRouteChildren {
   ShortsRoute: typeof ShortsRoute
   StudioRoute: typeof StudioRouteWithChildren
   ApiVideoRoute: typeof ApiVideoRoute
+  InfoSlugRoute: typeof InfoSlugRoute
   RoomsIdRoute: typeof RoomsIdRoute
   WatchIdRoute: typeof WatchIdRoute
   RoomsIndexRoute: typeof RoomsIndexRoute
@@ -343,6 +356,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RoomsIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/info/$slug': {
+      id: '/info/$slug'
+      path: '/info/$slug'
+      fullPath: '/info/$slug'
+      preLoaderRoute: typeof InfoSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/video': {
       id: '/api/video'
       path: '/api/video'
@@ -378,6 +398,7 @@ const rootRouteChildren: RootRouteChildren = {
   ShortsRoute: ShortsRoute,
   StudioRoute: StudioRouteWithChildren,
   ApiVideoRoute: ApiVideoRoute,
+  InfoSlugRoute: InfoSlugRoute,
   RoomsIdRoute: RoomsIdRoute,
   WatchIdRoute: WatchIdRoute,
   RoomsIndexRoute: RoomsIndexRoute,
