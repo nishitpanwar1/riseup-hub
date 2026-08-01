@@ -6,6 +6,8 @@ import { AppHeader } from "@/components/AppHeader";
 import { UserAvatar } from "@/components/UserAvatar";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { SiteFooterLinks } from "@/components/SiteFooterLinks";
+import { emptySignals, rankFeed, type Signals } from "@/lib/ranking";
 
 type Search = { q?: string; cat?: string; view?: string };
 
@@ -138,13 +140,23 @@ function FeedPage() {
     queryFn: async () => {
       const [{ data: likes }, { data: views }, { data: saves }, { data: follows }] = await Promise.all([
         supabase.from("video_likes").select("videos(category, user_id)").eq("user_id", user!.id).limit(200),
-        supabase.from("video_views").select("videos(category, user_id)").eq("user_id", user!.id).order("created_at", { ascending: false }).limit(300),
+        supabase.from("video_views").select("video_id, seconds_watched, total_seconds, videos(category, user_id)").eq("user_id", user!.id).order("created_at", { ascending: false }).limit(300),
         supabase.from("video_saves").select("videos(category, user_id)").eq("user_id", user!.id).limit(100),
         supabase.from("follows").select("following_id").eq("follower_id", user!.id),
       ]);
-      const catScore = new Map<string, number>();
-      const creatorScore = new Map<string, number>();
-      (follows ?? []).forEach((f: any) => creatorScore.set(f.following_id, (creatorScore.get(f.following_id) ?? 0) + 5));
+      const sig = emptySignals();
+      const { catScore, creatorScore } = sig;
+      (follows ?? []).forEach((f: any) => { creatorScore.set(f.following_id, (creatorScore.get(f.following_id) ?? 0) + 5); sig.subscriptions.add(f.following_id); });
+      const retentionTally = new Map<string, { sum: number; n: number }>();
+      (views ?? []).forEach((r: any) => {
+        const v = Array.isArray(r.videos) ? r.videos[0] : r.videos;
+        if (r.video_id) sig.seenIds.add(r.video_id);
+        if (!v?.category) return;
+        const ratio = r.total_seconds > 0 ? Math.min(1, (r.seconds_watched ?? 0) / r.total_seconds) : 0.4;
+        const cur = retentionTally.get(v.category) ?? { sum: 0, n: 0 };
+        retentionTally.set(v.category, { sum: cur.sum + ratio, n: cur.n + 1 });
+      });
+      retentionTally.forEach((t, k) => sig.retention.set(k, t.sum / Math.max(1, t.n)));
       const bump = (rows: any[] | null, weight: number) => {
         (rows ?? []).forEach((r: any) => {
           const v = Array.isArray(r.videos) ? r.videos[0] : r.videos;
@@ -156,7 +168,7 @@ function FeedPage() {
       bump(views, 1);   // most watched carries the most cumulative weight
       bump(likes, 3);
       bump(saves, 4);
-      return { catScore, creatorScore };
+      return sig;
     },
   });
 
@@ -198,9 +210,7 @@ function FeedPage() {
     }
     // Ranking algorithm (YouTube-style): engagement + freshness + personalization
     if (view === "home" && cat !== "trending") {
-      const scored = list.map((v: any) => ({ v, score: scoreVideo(v, signals) }));
-      scored.sort((a, b) => b.score - a.score);
-      return scored.map(s => s.v);
+      return rankFeed(list as any[], signals ?? emptySignals(), "long");
     }
     return list;
   }, [videos, filterIds, view, q, cat, signals]);
@@ -208,9 +218,7 @@ function FeedPage() {
   // rank shorts too — most-watched creators/categories float to the top
   const rankedShorts = useMemo(() => {
     if (!shorts.length) return [];
-    const scored = (shorts as any[]).map((s: any) => ({ s, score: scoreVideo(s, signals) }));
-    scored.sort((a, b) => b.score - a.score);
-    return scored.map(x => x.s);
+    return rankFeed(shorts as any[], signals ?? emptySignals(), "short");
   }, [shorts, signals]);
 
   const featured = filteredVideos[0];
@@ -313,6 +321,7 @@ function FeedPage() {
               ))}
             </div>
           )}
+          <SiteFooterLinks className="px-2 pb-4" />
         </aside>
 
 
