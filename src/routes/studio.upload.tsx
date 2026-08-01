@@ -7,6 +7,9 @@ import toast from "react-hot-toast";
 import { Upload, Film, Zap, Clapperboard, Repeat2, X } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { supabase } from "@/integrations/supabase/client";
+import { planLadder, transcodeToRenditions, transcodingSupported, type Rendition, type TranscodeProgress } from "@/lib/transcode";
+
+const MAX_TRANSCODE_BYTES = 600 * 1024 * 1024;
 
 type Search = { type?: "short" | "long"; remix?: string; title?: string; source?: string };
 
@@ -46,6 +49,8 @@ function UploadPage() {
   const [thumbFile, setThumbFile] = useState<File | null>(null);
   const [thumbPreview, setThumbPreview] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
+  const [stage, setStage] = useState("");
+  const [optimize, setOptimize] = useState(true);
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<Vals>({
     resolver: zodResolver(schema),
     defaultValues: { category: "discipline" },
@@ -110,7 +115,7 @@ function UploadPage() {
           width: dims.width,
           height: dims.height,
           targets,
-          onProgress: (p) => {
+          onProgress: (p: TranscodeProgress) => {
             setStage(`Encoding ${p.label} (${p.step}/${p.totalSteps})`);
             setProgress(Math.round(4 + p.overall * 51)); // 4% → 55%
           },
@@ -314,7 +319,7 @@ function Field({ label, children, error }: { label: string; children: React.Reac
   );
 }
 
-async function uploadCloudStorageWithProgress(bucket: string, path: string, file: File, contentType: string, onProgress: (pct: number) => void) {
+async function uploadCloudStorageWithProgress(bucket: string, path: string, file: Blob, contentType: string, onProgress: (pct: number) => void) {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
   if (!token) throw new Error("Sign in again before uploading.");
