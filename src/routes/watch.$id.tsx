@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Heart, Bookmark, Share2, ChevronLeft, Eye, Flame, MessageCircle, Send } from "lucide-react";
 import toast from "react-hot-toast";
 import { AppHeader } from "@/components/AppHeader";
@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { checkInStreak } from "@/lib/streak.functions";
 import { resolveVideoSrc } from "@/lib/video-url";
+import { parseRenditions, pickRendition, type Rendition } from "@/lib/transcode";
 
 export const Route = createFileRoute("/watch/$id")({
   component: WatchPage,
@@ -20,6 +21,8 @@ function WatchPage() {
   const nav = useNavigate();
   const qc = useQueryClient();
   const [comment, setComment] = useState("");
+  const [quality, setQuality] = useState<string>("auto");
+
 
   const { data: video, isLoading } = useQuery({
     queryKey: ["watch", id],
@@ -33,6 +36,15 @@ function WatchPage() {
       return data;
     },
   });
+
+  // Quality ladder produced by the in-browser encoder at upload time.
+  const renditions = useMemo(() => parseRenditions((video as any)?.renditions), [video]);
+  const activeSrc = useMemo(() => {
+    const fallback = (video as any)?.video_url ?? "";
+    if (!renditions.length) return fallback;
+    if (quality === "auto") return pickRendition(renditions, fallback);
+    return renditions.find((r: Rendition) => String(r.height) === quality)?.url ?? fallback;
+  }, [renditions, quality, video]);
 
   // if the video is a short, send the user to the shorts feed instead
   useEffect(() => {
@@ -142,11 +154,13 @@ function WatchPage() {
         </button>
         <div className="bg-black rounded-2xl overflow-hidden">
           <video
-            src={resolveVideoSrc(video.video_url)}
+            key={quality}
+            src={resolveVideoSrc(activeSrc)}
             poster={video.thumbnail_url}
             controls
             autoPlay
             playsInline
+            preload="auto"
             onTimeUpdate={onTimeUpdate}
             className="w-full max-h-[78vh] object-contain bg-black"
           />
@@ -154,6 +168,27 @@ function WatchPage() {
             <div className="h-full bg-brand-orange transition-all" style={{ width: `${Math.round(completion*100)}%` }} />
           </div>
         </div>
+        {renditions.length > 0 && (
+          <div className="mt-2 flex items-center gap-2 flex-wrap">
+            <span className="text-[10px] uppercase tracking-wider font-bold text-text-tertiary">Quality</span>
+            <button
+              onClick={() => setQuality("auto")}
+              className={`px-2.5 py-1 rounded-full text-xs font-bold border ${quality === "auto" ? "bg-white text-black border-white" : "border-rise text-text-secondary hover:text-text-primary"}`}
+            >
+              Auto
+            </button>
+            {[...renditions].sort((a: Rendition, b: Rendition) => a.height - b.height).map((r: Rendition) => (
+              <button
+                key={r.height}
+                onClick={() => setQuality(String(r.height))}
+                className={`px-2.5 py-1 rounded-full text-xs font-bold border ${quality === String(r.height) ? "bg-white text-black border-white" : "border-rise text-text-secondary hover:text-text-primary"}`}
+              >
+                {r.label}
+              </button>
+            ))}
+          </div>
+        )}
+
         <div className="mt-4 flex items-start justify-between gap-4 flex-wrap">
           <div className="min-w-0 flex-1">
             <span className="inline-block text-[10px] px-2 py-0.5 rounded-full bg-brand-purple uppercase font-bold tracking-wide mb-2">{video.category}</span>

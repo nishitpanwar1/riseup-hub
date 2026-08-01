@@ -1,0 +1,1 @@
+ALTER TABLE public.videos ADD COLUMN IF NOT EXISTS renditions jsonb NOT NULL DEFAULT '[]'::jsonb;

@@ -795,6 +795,7 @@ export type Database = {
           id: string
           is_short: boolean | null
           like_count: number | null
+          renditions: Json
           save_count: number | null
           share_count: number | null
           status: string | null
@@ -814,6 +815,7 @@ export type Database = {
           id?: string
           is_short?: boolean | null
           like_count?: number | null
+          renditions?: Json
           save_count?: number | null
           share_count?: number | null
           status?: string | null
@@ -833,6 +835,7 @@ export type Database = {
           id?: string
           is_short?: boolean | null
           like_count?: number | null
+          renditions?: Json
           save_count?: number | null
           share_count?: number | null
           status?: string | null

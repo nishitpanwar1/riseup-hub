@@ -7,6 +7,9 @@ import toast from "react-hot-toast";
 import { Upload, Film, Zap, Clapperboard, Repeat2, X } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { supabase } from "@/integrations/supabase/client";
+import { planLadder, transcodeToRenditions, transcodingSupported, type Rendition, type TranscodeProgress } from "@/lib/transcode";
+
+const MAX_TRANSCODE_BYTES = 600 * 1024 * 1024;
 
 type Search = { type?: "short" | "long"; remix?: string; title?: string; source?: string };
 
@@ -46,6 +49,8 @@ function UploadPage() {
   const [thumbFile, setThumbFile] = useState<File | null>(null);
   const [thumbPreview, setThumbPreview] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
+  const [stage, setStage] = useState("");
+  const [optimize, setOptimize] = useState(true);
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<Vals>({
     resolver: zodResolver(schema),
     defaultValues: { category: "discipline" },
@@ -85,32 +90,73 @@ function UploadPage() {
     if (!u.user) return toast.error("Sign in first");
 
     const isShort = mode === "short";
+    const userId = u.user.id;
 
     try {
-      setProgress(5);
-      // Start thumbnail generation in parallel with the video upload (was serial and could hang).
+      setProgress(3);
+      setStage("Preparing…");
+      // Start thumbnail generation in parallel with the video work.
       const thumbPromise: Promise<{ blob: Blob; ext: string; type: string } | null> = thumbFile
         ? Promise.resolve({ blob: thumbFile, ext: (thumbFile.name.split(".").pop() || "jpg").toLowerCase(), type: thumbFile.type || "image/jpeg" })
         : captureVideoThumbnail(file).then(b => (b ? { blob: b, ext: "jpg", type: "image/jpeg" } : null)).catch(() => null);
 
-      // 1. upload video directly to the public video bucket with real progress.
-      const ext = (file.name.split(".").pop() || "mp4").toLowerCase().replace(/[^a-z0-9]/g, "");
+      const dims = probe ?? await probeVideo(file).catch(() => null);
       const folder = isShort ? "shorts" : "videos";
-      const videoPath = `${u.user.id}/${folder}/${crypto.randomUUID()}.${ext}`;
-      await uploadCloudStorageWithProgress("videos", videoPath, file, file.type || "video/mp4", (pct) => {
-        setProgress(Math.max(6, Math.min(78, Math.round(6 + pct * 0.72))));
-      });
-      setProgress(80);
-      const { data: pub } = supabase.storage.from("videos").getPublicUrl(videoPath);
-      const playbackUrl = pub.publicUrl;
+      const renditions: Rendition[] = [];
+      let playbackUrl = "";
 
-      // 2. thumbnail — never blocks the publish; falls back to a generated placeholder.
+      const useWasm = optimize && !!dims && transcodingSupported() && file.size <= MAX_TRANSCODE_BYTES;
+
+      if (useWasm && dims) {
+        // ---- Free in-browser encode: 360p / 720p / 1080p H.264 + faststart ----
+        const targets = planLadder(dims.width, dims.height);
+        setStage(`Loading encoder…`);
+        const outputs = await transcodeToRenditions(file, {
+          width: dims.width,
+          height: dims.height,
+          targets,
+          onProgress: (p: TranscodeProgress) => {
+            setStage(`Encoding ${p.label} (${p.step}/${p.totalSteps})`);
+            setProgress(Math.round(4 + p.overall * 51)); // 4% → 55%
+          },
+        });
+        if (outputs.length === 0) throw new Error("Encoding produced no output — try a different file.");
+
+        for (let i = 0; i < outputs.length; i++) {
+          const out = outputs[i];
+          setStage(`Uploading ${out.label}`);
+          const path = `${userId}/${folder}/${crypto.randomUUID()}_${out.height}p.mp4`;
+          await uploadCloudStorageWithProgress("videos", path, out.blob, "video/mp4", (pct) => {
+            const base = 56 + (i / outputs.length) * 26;
+            setProgress(Math.round(base + (pct / 100) * (26 / outputs.length)));
+          });
+          const { data: pub } = supabase.storage.from("videos").getPublicUrl(path);
+          renditions.push({ label: out.label, height: out.height, url: pub.publicUrl, bytes: out.blob.size });
+        }
+        // default playback = highest rendition available
+        playbackUrl = [...renditions].sort((a, b) => a.height - b.height).pop()!.url;
+      } else {
+        // ---- Direct passthrough upload ----
+        setStage("Uploading video");
+        const ext = (file.name.split(".").pop() || "mp4").toLowerCase().replace(/[^a-z0-9]/g, "");
+        const videoPath = `${userId}/${folder}/${crypto.randomUUID()}.${ext}`;
+        await uploadCloudStorageWithProgress("videos", videoPath, file, file.type || "video/mp4", (pct) => {
+          setProgress(Math.max(6, Math.min(80, Math.round(6 + pct * 0.74))));
+        });
+        const { data: pub } = supabase.storage.from("videos").getPublicUrl(videoPath);
+        playbackUrl = pub.publicUrl;
+      }
+
+      setProgress(84);
+      setStage("Finishing thumbnail");
+
+      // thumbnail — never blocks the publish; falls back to a generated placeholder.
       let thumb = `https://placehold.co/${isShort ? "405x720" : "720x405"}/141414/FF6B35.png?text=${encodeURIComponent(vals.title)}`;
       const t = await thumbPromise;
-      setProgress(85);
+      setProgress(88);
       if (t) {
         try {
-          const tPath = `${u.user.id}/thumbs/${Date.now()}.${t.ext}`;
+          const tPath = `${userId}/thumbs/${Date.now()}.${t.ext}`;
           const { error: tErr } = await supabase.storage.from("thumbnails").upload(tPath, t.blob, { upsert: false, contentType: t.type });
           if (!tErr) {
             const { data: tPub } = supabase.storage.from("thumbnails").getPublicUrl(tPath);
@@ -118,34 +164,39 @@ function UploadPage() {
           }
         } catch (e) { console.warn("thumb upload failed", e); }
       }
-      setProgress(92);
+      setProgress(93);
+      setStage("Publishing");
 
       const tags = vals.tags?.split(",").map(t => t.trim()).filter(Boolean).slice(0, 5) ?? [];
       if (search.remix && !tags.includes("remix")) tags.unshift("remix");
       if (search.remix) tags.push(`remixed_from:${search.remix}`);
 
       const { error: insErr } = await supabase.from("videos").insert({
-        user_id: u.user.id,
+        user_id: userId,
         title: vals.title,
         description: vals.description ?? null,
         category: vals.category,
         video_url: playbackUrl,
         thumbnail_url: thumb,
-        duration: Math.round(probe?.duration ?? 0),
+        duration: Math.round(dims?.duration ?? probe?.duration ?? 0),
         is_short: isShort,
         tags,
+        renditions: renditions as any,
         status: "active",
       });
       if (insErr) throw insErr;
       setProgress(100);
+      setStage("Live");
       toast.success(isShort ? "Short is live" : "Video is live");
       nav({ to: isShort ? "/shorts" : "/feed" });
     } catch (e: any) {
       console.error(e);
       toast.error(e.message ?? "Upload failed");
       setProgress(0);
+      setStage("");
     }
   };
+
 
   return (
     <div className="min-h-screen bg-bg-primary text-text-primary">
@@ -237,14 +288,34 @@ function UploadPage() {
             <input {...register("tags")} placeholder="cold, discipline, morning" className="w-full px-3 py-2.5" />
           </Field>
 
+          <div className="rounded-xl border border-rise bg-bg-surface p-4">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={optimize}
+                onChange={(e) => setOptimize(e.target.checked)}
+                className="mt-1 w-4 h-4 accent-brand-orange"
+              />
+              <span className="flex-1">
+                <span className="font-bold text-sm block">Optimise quality ladder (free, in your browser)</span>
+                <span className="text-xs text-text-tertiary block mt-0.5">
+                  Encodes 360p / 720p / 1080p H.264 with fast-start so viewers get instant playback and
+                  can pick a quality. Slower to publish, and skipped for files over 600&nbsp;MB.
+                  {probe && ` Planned: ${planLadder(probe.width, probe.height).map(p => `${p}p`).join(" · ")}`}
+                </span>
+              </span>
+            </label>
+          </div>
+
           {progress > 0 && (
             <div>
               <div className="h-2 rounded-full bg-bg-surface overflow-hidden">
                 <div className="h-full bg-brand-orange transition-all" style={{ width: `${progress}%` }} />
               </div>
-              <p className="text-xs text-text-tertiary mt-1 font-stat">{progress}%</p>
+              <p className="text-xs text-text-tertiary mt-1 font-stat">{stage ? `${stage} · ` : ""}{progress}%</p>
             </div>
           )}
+
 
           <button disabled={isSubmitting || !file} type="submit" className="btn-primary w-full inline-flex items-center justify-center gap-2 disabled:opacity-40">
             <Upload className="w-4 h-4" /> {isSubmitting ? "Uploading…" : `Publish ${mode === "short" ? "short" : "video"}`}
@@ -268,7 +339,7 @@ function Field({ label, children, error }: { label: string; children: React.Reac
   );
 }
 
-async function uploadCloudStorageWithProgress(bucket: string, path: string, file: File, contentType: string, onProgress: (pct: number) => void) {
+async function uploadCloudStorageWithProgress(bucket: string, path: string, file: Blob, contentType: string, onProgress: (pct: number) => void) {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
   if (!token) throw new Error("Sign in again before uploading.");
