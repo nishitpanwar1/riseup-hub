@@ -20,6 +20,8 @@ function WatchPage() {
   const nav = useNavigate();
   const qc = useQueryClient();
   const [comment, setComment] = useState("");
+  const [quality, setQuality] = useState<string>("auto");
+
 
   const { data: video, isLoading } = useQuery({
     queryKey: ["watch", id],
