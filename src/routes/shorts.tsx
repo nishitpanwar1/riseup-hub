@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { resolveVideoSrc } from "@/lib/video-url";
+import { parseRenditions, pickRendition } from "@/lib/transcode";
 import { ShortsComments } from "@/components/ShortsComments";
 
 export const Route = createFileRoute("/shorts")({
@@ -17,6 +18,7 @@ type Short = {
   description: string | null;
   category: string;
   video_url: string;
+  renditions: unknown;
   thumbnail_url: string;
   like_count: number;
   save_count: number;
@@ -30,7 +32,7 @@ type Short = {
 const PAGE = 8;
 const STORAGE_KEY = "riseup:shorts:active";
 
-const SELECT = "id, title, description, category, video_url, thumbnail_url, like_count, save_count, view_count, comment_count, user_id, created_at, profiles(username, display_name, avatar_url, creator_tier)";
+const SELECT = "id, title, description, category, video_url, renditions, thumbnail_url, like_count, save_count, view_count, comment_count, user_id, created_at, profiles(username, display_name, avatar_url, creator_tier)";
 
 function ShortsPage() {
   const { user } = useAuth();
@@ -402,7 +404,7 @@ function ShortItem({
         {shouldMount ? (
           <video
             ref={videoRef}
-            src={resolveVideoSrc(short.video_url)}
+            src={resolveVideoSrc(pickRendition(parseRenditions(short.renditions), short.video_url))}
             poster={short.thumbnail_url}
             loop
             muted={muted}
