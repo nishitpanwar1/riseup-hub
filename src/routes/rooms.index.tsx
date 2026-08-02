@@ -7,6 +7,8 @@ import { z } from "zod";
 import toast from "react-hot-toast";
 import { Users, Flame, Plus } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
+import { MobileTabBar } from "@/components/MobileTabBar";
+import { useMyProfile } from "@/hooks/use-profile";
 import { UserAvatar } from "@/components/UserAvatar";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -24,6 +26,7 @@ const newRoomSchema = z.object({
 function RoomsPage() {
   const { user } = useAuth();
   const qc = useQueryClient();
+  const { data: tabProfile } = useMyProfile();
   const [open, setOpen] = useState(false);
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(newRoomSchema),
@@ -74,10 +77,13 @@ function RoomsPage() {
     return () => { supabase.removeChannel(ch); };
   }, [qc]);
 
+  const tabBarUsername = tabProfile?.username ?? null;
+
   return (
     <div className="min-h-screen bg-bg-primary text-text-primary">
       <AppHeader />
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+      <MobileTabBar username={tabBarUsername ?? null} />
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 pb-safe-nav lg:pb-8">
         <div className="flex items-end justify-between mb-6 flex-wrap gap-3">
           <div>
             <h1 className="text-4xl font-black uppercase">Accountability rooms</h1>

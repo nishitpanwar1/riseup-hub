@@ -7,6 +7,7 @@ import { UserAvatar } from "@/components/UserAvatar";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { SiteFooterLinks } from "@/components/SiteFooterLinks";
+import { MobileTabBar } from "@/components/MobileTabBar";
 import { emptySignals, rankFeed } from "@/lib/ranking";
 
 type Search = { q?: string; cat?: string; view?: string };
@@ -271,9 +272,9 @@ function FeedPage() {
   return (
     <div className="min-h-screen bg-bg-primary text-text-primary">
       <AppHeader />
-      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-6 grid lg:grid-cols-[240px_1fr_320px] gap-6">
+      <div className="max-w-[1600px] mx-auto px-3 sm:px-6 py-4 sm:py-6 pb-safe-nav lg:pb-6 grid lg:grid-cols-[240px_1fr_320px] gap-6">
         {/* LEFT SIDEBAR */}
-        <aside className="lg:sticky lg:top-20 h-fit space-y-4">
+        <aside className="hidden lg:block lg:sticky lg:top-20 h-fit space-y-4">
           <nav className="card-rise p-2">
             <SideBtn active={view === "home"} onClick={() => setSearch({ view: "home", cat: undefined })} icon={<Home className="w-5 h-5" />} label="Home" />
             <SideLink to="/shorts" icon={<Compass className="w-5 h-5" />} label="Shorts" />
@@ -326,14 +327,14 @@ function FeedPage() {
 
 
         {/* CENTER */}
-        <main>
+        <main className="min-w-0">
           {/* category pills */}
-          <div className="flex flex-wrap gap-2 mb-5">
+          <div className="-mx-3 px-3 sm:mx-0 sm:px-0 mb-4 sm:mb-5 flex gap-2 overflow-x-auto scrollbar-none sm:flex-wrap">
             {CATEGORIES.map(c => (
               <button
                 key={c}
                 onClick={() => setSearch({ cat: c === "all" ? undefined : c, view: "home" })}
-                className={`px-4 py-2 rounded-full text-sm font-semibold capitalize border transition-colors ${
+                className={`shrink-0 px-4 py-2 rounded-full text-sm font-semibold capitalize border transition-colors ${
                   (cat === c || (c === "all" && cat === "all"))
                     ? "bg-white text-black border-white"
                     : "bg-bg-surface border-rise text-text-secondary hover:text-text-primary"
@@ -356,11 +357,11 @@ function FeedPage() {
               {view === "home" && !q && rankedShorts.length > 0 && <ShortsShelf shorts={rankedShorts} />}
               {featured && view === "home" && !q && <FeaturedCard video={featured} />}
               {view === "home" && !q ? (
-                <div className="grid sm:grid-cols-2 gap-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
                   {grid.map((v: any) => <VideoCard key={v.id} video={v} />)}
                 </div>
               ) : (
-                <div className="grid sm:grid-cols-2 gap-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
                   {filteredVideos.map((v: any) => <VideoCard key={v.id} video={v} />)}
                 </div>
               )}
@@ -369,7 +370,7 @@ function FeedPage() {
         </main>
 
         {/* RIGHT SIDEBAR */}
-        <aside className="space-y-4">
+        <aside className="hidden lg:block space-y-4">
           {user && (
             <div className="card-rise p-5">
               <div className="flex items-center justify-between mb-2">
@@ -441,6 +442,7 @@ function FeedPage() {
           </div>
         </aside>
       </div>
+      <MobileTabBar username={myRank?.username ?? null} />
     </div>
   );
 }
@@ -493,8 +495,8 @@ function FeaturedCard({ video }: { video: any }) {
       <div className={`relative aspect-video bg-gradient-to-br ${CAT_BG[video.category] ?? "from-bg-card to-bg-surface"}`}>
         {video.thumbnail_url && <img src={video.thumbnail_url} alt={video.title} className="w-full h-full object-cover" loading="lazy" />}
         {isFresh && (
-          <span className="absolute top-3 left-3 inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide px-2.5 py-1 rounded-md bg-red-600 text-white">
-            <span className="w-2 h-2 rounded-full bg-white animate-pulse" /> LIVE
+          <span className="absolute top-3 left-3 text-[10px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-md bg-bg-surface/90 text-text-primary border border-rise">
+            New
           </span>
         )}
         <span className="absolute bottom-3 right-3 text-xs px-2 py-0.5 rounded bg-black/70 font-stat">

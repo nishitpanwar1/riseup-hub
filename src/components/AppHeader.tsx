@@ -33,18 +33,18 @@ export function AppHeader() {
 
   return (
     <header className="sticky top-0 z-40 backdrop-blur bg-[#0a0a0a]/90 border-b border-rise">
-      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 h-16 flex items-center gap-4">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 h-16 flex items-center gap-2 sm:gap-4">
         <Link to="/" className="flex items-center gap-2 shrink-0">
           <Flame className="w-6 h-6 text-brand-orange" />
           <span className="font-display text-xl font-black tracking-tight">RISEUP</span>
         </Link>
-        <div className="flex-1 max-w-2xl mx-auto">
+        <div className="flex-1 min-w-0 max-w-2xl mx-auto">
           <label className="relative block">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary" />
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Search videos or channels"
+              placeholder="Search"
               className="w-full pl-10 pr-3 py-2.5 bg-bg-surface border border-rise rounded-full text-sm text-text-primary placeholder:text-text-tertiary outline-none focus:border-brand-purple"
             />
           </label>
@@ -77,7 +77,7 @@ export function AppHeader() {
               </button>
             </>
           ) : (
-            <Link to="/auth" className="btn-primary text-sm py-2 px-4">Enter the Arena</Link>
+            <Link to="/auth" className="btn-primary text-sm py-2 px-3 sm:px-4 whitespace-nowrap">Enter</Link>
           )}
         </div>
       </div>

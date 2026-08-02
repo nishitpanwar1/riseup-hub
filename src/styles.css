@@ -130,3 +130,20 @@
     border-radius: 1rem;
   }
 }
+
+@layer utilities {
+  .scrollbar-none { scrollbar-width: none; -ms-overflow-style: none; }
+  .scrollbar-none::-webkit-scrollbar { display: none; }
+  .pb-safe-nav { padding-bottom: calc(5rem + env(safe-area-inset-bottom)); }
+}
+
+@keyframes riseup-pop {
+  0% { transform: scale(0.82); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes riseup-load {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+
+html, body { overflow-x: clip; max-width: 100%; }
