@@ -327,7 +327,7 @@ function FeedPage() {
 
 
         {/* CENTER */}
-        <main>
+        <main className="min-w-0">
           {/* category pills */}
           <div className="-mx-3 px-3 sm:mx-0 sm:px-0 mb-4 sm:mb-5 flex gap-2 overflow-x-auto scrollbar-none sm:flex-wrap">
             {CATEGORIES.map(c => (
