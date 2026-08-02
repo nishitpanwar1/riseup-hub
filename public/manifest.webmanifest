@@ -1,0 +1,16 @@
+{
+  "name": "RiseUp",
+  "short_name": "RiseUp",
+  "description": "RiseUp — short and long form video built for discipline, fitness, study, mindset and money.",
+  "start_url": "/feed",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a0a0a",
+  "theme_color": "#0a0a0a",
+  "icons": [
+    { "src": "/riseup-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/riseup-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/riseup-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

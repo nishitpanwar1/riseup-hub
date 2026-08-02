@@ -7,6 +7,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { resolveVideoSrc } from "@/lib/video-url";
 import { parseRenditions, pickRendition } from "@/lib/transcode";
 import { ShortsComments } from "@/components/ShortsComments";
+import { MobileTabBar } from "@/components/MobileTabBar";
+import { useMyProfile } from "@/hooks/use-profile";
 
 export const Route = createFileRoute("/shorts")({
   component: ShortsPage,
@@ -37,6 +39,7 @@ const SELECT = "id, title, description, category, video_url, renditions, thumbna
 function ShortsPage() {
   const { user } = useAuth();
   const nav = useNavigate();
+  const { data: myProfile } = useMyProfile();
   const [muted, setMuted] = useState(false);
   const [volume, setVolume] = useState(1);
   const [items, setItems] = useState<Short[]>([]);
@@ -312,13 +315,15 @@ function ShortsPage() {
         )}
       </div>
 
-      <div className="md:hidden absolute bottom-2 left-1/2 -translate-x-1/2 text-[10px] text-white/60 z-40 flex items-center gap-1 pointer-events-none">
+      <div className="md:hidden absolute bottom-[4.75rem] left-1/2 -translate-x-1/2 text-[10px] text-white/60 z-40 flex items-center gap-1 pointer-events-none">
         <Play className="w-3 h-3" /> Swipe up for next
       </div>
 
       {commentsOpenFor && (
         <ShortsComments videoId={commentsOpenFor} onClose={() => setCommentsOpenFor(null)} />
       )}
+
+      <MobileTabBar username={myProfile?.username ?? null} />
     </div>
   );
 }
@@ -398,9 +403,9 @@ function ShortItem({
   return (
     <div
       ref={wrapRef}
-      className="relative w-full h-[100dvh] snap-start snap-always flex items-center justify-center bg-black gap-3 sm:gap-5 px-2 sm:px-4"
+      className="relative w-full h-[100dvh] snap-start snap-always flex items-center justify-center bg-black md:gap-5 md:px-4"
     >
-      <div className="relative h-full md:h-[95%] aspect-[9/16] max-w-full bg-black overflow-hidden md:rounded-2xl md:shadow-[0_0_60px_rgba(123,47,255,0.25)] flex items-center justify-center shrink">
+      <div className="relative h-full w-full md:w-auto md:h-[95%] md:aspect-[9/16] max-w-full bg-black overflow-hidden md:rounded-2xl md:shadow-[0_0_60px_rgba(123,47,255,0.25)] flex items-center justify-center">
         {shouldMount ? (
           <video
             ref={videoRef}
@@ -416,19 +421,19 @@ function ShortItem({
               const bar = progressRef.current;
               if (bar && v.duration) bar.style.width = `${(v.currentTime / v.duration) * 100}%`;
             }}
-            className="max-w-full max-h-full w-auto h-auto object-contain"
+            className="w-full h-full object-contain md:max-w-full md:max-h-full md:w-auto md:h-auto"
           />
         ) : (
           <img src={short.thumbnail_url} alt="" className="max-w-full max-h-full w-auto h-auto object-contain opacity-70" loading="lazy" />
         )}
 
         {isActive && (
-          <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/10 z-30">
+          <div className="absolute bottom-16 md:bottom-0 left-0 right-0 h-1 bg-white/10 z-30">
             <div ref={progressRef} className="h-full bg-brand-orange" style={{ width: "0%" }} />
           </div>
         )}
 
-        <div className="absolute inset-x-0 bottom-0 p-5 bg-gradient-to-t from-black/85 via-black/40 to-transparent text-white">
+        <div className="absolute inset-x-0 bottom-0 p-4 pb-20 pr-20 md:p-5 md:pb-5 md:pr-5 bg-gradient-to-t from-black/85 via-black/40 to-transparent text-white">
           {short.profiles && (
             <Link to="/$username" params={{ username: short.profiles.username }} className="flex items-center gap-2 mb-3">
               <div className="w-10 h-10 rounded-full bg-bg-surface border-2 border-brand-purple flex items-center justify-center font-bold overflow-hidden">
@@ -453,7 +458,7 @@ function ShortItem({
       </div>
 
       {/* Actions live OUTSIDE the video frame, YouTube-style */}
-      <div className="flex flex-col gap-5 items-center text-white shrink-0 self-center z-30">
+      <div className="absolute right-2 bottom-24 md:static md:self-center flex flex-col gap-4 md:gap-5 items-center text-white shrink-0 z-30">
         <ActionBtn
           icon={<Heart className={`w-6 h-6 ${liked ? "fill-brand-orange text-brand-orange" : ""}`} />}
           count={short.like_count}

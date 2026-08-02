@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { ShoppingBag, Tag, Plus, Coins } from "lucide-react";
 import toast from "react-hot-toast";
 import { AppHeader } from "@/components/AppHeader";
+import { MobileTabBar } from "@/components/MobileTabBar";
+import { useMyProfile } from "@/hooks/use-profile";
 import { UserAvatar } from "@/components/UserAvatar";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -15,6 +17,7 @@ export const Route = createFileRoute("/shop")({
 function ShopPage() {
   const { user } = useAuth();
   const qc = useQueryClient();
+  const { data: tabProfile } = useMyProfile();
   const { data: products = [], isLoading, refetch } = useQuery({
     queryKey: ["shop-products"],
     queryFn: async () => {
@@ -57,10 +60,13 @@ function ShopPage() {
     return () => { supabase.removeChannel(ch); };
   }, [qc, refetch]);
 
+  const tabBarUsername = tabProfile?.username ?? null;
+
   return (
     <div className="min-h-screen bg-bg-primary text-text-primary">
       <AppHeader />
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-8">
+      <MobileTabBar username={tabBarUsername ?? null} />
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-8 pb-safe-nav lg:pb-8">
         <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
           <div>
             <h1 className="font-display font-black text-3xl uppercase flex items-center gap-2">
