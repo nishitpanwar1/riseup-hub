@@ -40,8 +40,8 @@ export function AppHeader({ backTo }: { backTo?: boolean }) {
   return (
     <header className="sticky top-0 z-40 backdrop-blur bg-[#0a0a0a]/95 border-b border-rise">
       <div className="max-w-[1600px] mx-auto px-3 sm:px-6 h-14 sm:h-16 flex items-center gap-2 sm:gap-4">
-        {showBack && <span className="lg:hidden shrink-0"><BackButton /></span>}
-        <Link to="/" className={`items-center gap-2 shrink-0 ${showBack ? "hidden sm:flex" : "flex"}`}>
+        {showBack && <span className="shrink-0"><BackButton /></span>}
+        <Link to="/" className={`items-center gap-2 shrink-0 ${showBack ? "hidden md:flex" : "flex"}`}>
           <Flame className="w-6 h-6 text-brand-orange" />
           <span className="font-display text-lg sm:text-xl font-black tracking-tight">RISEUP</span>
         </Link>
