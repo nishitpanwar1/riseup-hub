@@ -293,19 +293,45 @@ function UploadPage() {
               {CATS.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
           </Field>
-          <Field label="Thumbnail (optional image)">
+          <Field label="Thumbnail">
+            {(genThumbs || candidates.length > 0) && !thumbFile && (
+              <div className="mb-3">
+                <p className="text-xs text-text-tertiary mb-2">
+                  {genThumbs ? "Generating thumbnail options…" : "Pick an auto-generated thumbnail"}
+                </p>
+                <div className="grid grid-cols-3 gap-2">
+                  {genThumbs && candidates.length === 0 && [0, 1, 2].map(i => (
+                    <div key={i} className={`rounded-lg bg-bg-surface animate-pulse ${mode === "short" ? "aspect-[9/16]" : "aspect-video"}`} />
+                  ))}
+                  {candidates.map((c, i) => (
+                    <button
+                      key={c.url}
+                      type="button"
+                      onClick={() => setCandidateIdx(i)}
+                      className={`relative rounded-lg overflow-hidden border-2 transition-colors ${mode === "short" ? "aspect-[9/16]" : "aspect-video"} ${candidateIdx === i ? "border-brand-orange" : "border-rise"}`}
+                    >
+                      <img src={c.url} alt={`Thumbnail option ${i + 1}`} className="w-full h-full object-cover" />
+                      {candidateIdx === i && (
+                        <span className="absolute bottom-1 right-1 text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-brand-orange text-white">Selected</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="border-2 border-dashed border-rise rounded-xl p-4 text-center bg-bg-surface hover:border-brand-purple cursor-pointer relative flex items-center gap-4">
               <input type="file" accept="image/*" onChange={e => handleThumb(e.target.files?.[0] ?? null)} className="absolute inset-0 opacity-0 cursor-pointer" />
               {thumbPreview ? (
                 <img src={thumbPreview} alt="Thumbnail preview" className="w-20 h-20 object-cover rounded-md" />
               ) : (
-                <div className="w-20 h-20 rounded-md bg-bg-primary flex items-center justify-center text-text-tertiary text-xs">No image</div>
+                <div className="w-20 h-20 rounded-md bg-bg-primary flex items-center justify-center text-text-tertiary text-xs shrink-0">No image</div>
               )}
               <p className="text-sm text-text-secondary flex-1 text-left">
-                {thumbFile ? thumbFile.name : "Click to upload a cover (auto-generated if blank)"}
+                {thumbFile ? thumbFile.name : "Or upload your own cover image"}
               </p>
             </div>
           </Field>
+
           <Field label="Tags (comma separated, max 5)">
             <input {...register("tags")} placeholder="cold, discipline, morning" className="w-full px-3 py-2.5" />
           </Field>
