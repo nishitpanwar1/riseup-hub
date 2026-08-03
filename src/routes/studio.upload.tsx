@@ -6,6 +6,7 @@ import { z } from "zod";
 import toast from "react-hot-toast";
 import { Upload, Film, Zap, Clapperboard, Repeat2, X } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
+import { BackButton } from "@/components/BackButton";
 import { supabase } from "@/integrations/supabase/client";
 import { planLadder, transcodeToRenditions, transcodingSupported, type Rendition, type TranscodeProgress } from "@/lib/transcode";
 
@@ -48,6 +49,9 @@ function UploadPage() {
   const [probe, setProbe] = useState<Probe | null>(null);
   const [thumbFile, setThumbFile] = useState<File | null>(null);
   const [thumbPreview, setThumbPreview] = useState<string | null>(null);
+  const [candidates, setCandidates] = useState<{ url: string; blob: Blob }[]>([]);
+  const [candidateIdx, setCandidateIdx] = useState(0);
+  const [genThumbs, setGenThumbs] = useState(false);
   const [progress, setProgress] = useState(0);
   const [stage, setStage] = useState("");
   const [optimize, setOptimize] = useState(true);
@@ -71,11 +75,24 @@ function UploadPage() {
 
   const handleFile = async (f: File | null) => {
     setProbe(null); setFile(f);
+    candidates.forEach(c => URL.revokeObjectURL(c.url));
+    setCandidates([]); setCandidateIdx(0);
     if (!f) return;
     // Non-blocking probe: don't hold the UI on codec checks.
     probeVideo(f).then(setProbe).catch(() => {
       toast.error("Could not read video metadata — try MP4/H.264");
     });
+    // Auto-generate 3 thumbnail choices from different points in the video.
+    setGenThumbs(true);
+    try {
+      const dur = await probeVideo(f).then(p => p.duration).catch(() => 0);
+      const points = dur > 2 ? [dur * 0.1, dur * 0.4, dur * 0.75] : [0.2, 0.5, 0.9];
+      const blobs = await Promise.all(points.map(p => captureVideoThumbnail(f, p).catch(() => null)));
+      const list = blobs.filter(Boolean).map(b => ({ blob: b as Blob, url: URL.createObjectURL(b as Blob) }));
+      setCandidates(list);
+    } finally {
+      setGenThumbs(false);
+    }
   };
 
   const handleThumb = (f: File | null) => {
@@ -95,10 +112,13 @@ function UploadPage() {
     try {
       setProgress(3);
       setStage("Preparing…");
-      // Start thumbnail generation in parallel with the video work.
+      // Thumbnail priority: uploaded image → picked auto-frame → captured frame.
+      const picked = candidates[candidateIdx];
       const thumbPromise: Promise<{ blob: Blob; ext: string; type: string } | null> = thumbFile
         ? Promise.resolve({ blob: thumbFile, ext: (thumbFile.name.split(".").pop() || "jpg").toLowerCase(), type: thumbFile.type || "image/jpeg" })
-        : captureVideoThumbnail(file).then(b => (b ? { blob: b, ext: "jpg", type: "image/jpeg" } : null)).catch(() => null);
+        : picked
+          ? Promise.resolve({ blob: picked.blob, ext: "jpg", type: "image/jpeg" })
+          : captureVideoThumbnail(file).then(b => (b ? { blob: b, ext: "jpg", type: "image/jpeg" } : null)).catch(() => null);
 
       const dims = probe ?? await probeVideo(file).catch(() => null);
       const folder = isShort ? "shorts" : "videos";
@@ -201,9 +221,11 @@ function UploadPage() {
   return (
     <div className="min-h-screen bg-bg-primary text-text-primary">
       <AppHeader />
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
-        <h1 className="text-3xl font-black uppercase mb-1">Studio · upload</h1>
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-8 pb-safe-nav lg:pb-8">
+        <div className="hidden lg:block mb-2"><BackButton label="Back" /></div>
+        <h1 className="text-2xl sm:text-3xl font-black uppercase mb-1">Studio · upload</h1>
         <p className="text-text-secondary mb-6">No size cap · streams directly · auto-thumbnail</p>
+
 
         {search.remix && (
           <div className="mb-5 flex items-center gap-3 p-3 rounded-xl border border-brand-orange/40 bg-brand-orange/10">
@@ -271,19 +293,45 @@ function UploadPage() {
               {CATS.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
           </Field>
-          <Field label="Thumbnail (optional image)">
+          <Field label="Thumbnail">
+            {(genThumbs || candidates.length > 0) && !thumbFile && (
+              <div className="mb-3">
+                <p className="text-xs text-text-tertiary mb-2">
+                  {genThumbs ? "Generating thumbnail options…" : "Pick an auto-generated thumbnail"}
+                </p>
+                <div className="grid grid-cols-3 gap-2">
+                  {genThumbs && candidates.length === 0 && [0, 1, 2].map(i => (
+                    <div key={i} className={`rounded-lg bg-bg-surface animate-pulse ${mode === "short" ? "aspect-[9/16]" : "aspect-video"}`} />
+                  ))}
+                  {candidates.map((c, i) => (
+                    <button
+                      key={c.url}
+                      type="button"
+                      onClick={() => setCandidateIdx(i)}
+                      className={`relative rounded-lg overflow-hidden border-2 transition-colors ${mode === "short" ? "aspect-[9/16]" : "aspect-video"} ${candidateIdx === i ? "border-brand-orange" : "border-rise"}`}
+                    >
+                      <img src={c.url} alt={`Thumbnail option ${i + 1}`} className="w-full h-full object-cover" />
+                      {candidateIdx === i && (
+                        <span className="absolute bottom-1 right-1 text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-brand-orange text-white">Selected</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="border-2 border-dashed border-rise rounded-xl p-4 text-center bg-bg-surface hover:border-brand-purple cursor-pointer relative flex items-center gap-4">
               <input type="file" accept="image/*" onChange={e => handleThumb(e.target.files?.[0] ?? null)} className="absolute inset-0 opacity-0 cursor-pointer" />
               {thumbPreview ? (
                 <img src={thumbPreview} alt="Thumbnail preview" className="w-20 h-20 object-cover rounded-md" />
               ) : (
-                <div className="w-20 h-20 rounded-md bg-bg-primary flex items-center justify-center text-text-tertiary text-xs">No image</div>
+                <div className="w-20 h-20 rounded-md bg-bg-primary flex items-center justify-center text-text-tertiary text-xs shrink-0">No image</div>
               )}
               <p className="text-sm text-text-secondary flex-1 text-left">
-                {thumbFile ? thumbFile.name : "Click to upload a cover (auto-generated if blank)"}
+                {thumbFile ? thumbFile.name : "Or upload your own cover image"}
               </p>
             </div>
           </Field>
+
           <Field label="Tags (comma separated, max 5)">
             <input {...register("tags")} placeholder="cold, discipline, morning" className="w-full px-3 py-2.5" />
           </Field>

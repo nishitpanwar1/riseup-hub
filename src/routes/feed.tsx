@@ -347,19 +347,30 @@ function FeedPage() {
 
           {isLoading ? (
             <div className="text-text-secondary">Loading the arena…</div>
-          ) : filteredVideos.length === 0 ? (
-            <div className="card-rise p-12 text-center">
-              <p className="text-text-secondary">{q ? `No matches for "${q}"` : "No videos here yet."}</p>
-              <Link to="/studio/upload" className="btn-primary inline-block mt-4">Upload one</Link>
-            </div>
           ) : (
             <div className="space-y-5">
+              {/* Shorts shelf always renders when shorts exist — even if there are no long videos yet */}
               {view === "home" && !q && rankedShorts.length > 0 && <ShortsShelf shorts={rankedShorts} />}
-              {featured && view === "home" && !q && <FeaturedCard video={featured} />}
-              {view === "home" && !q ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
-                  {grid.map((v: any) => <VideoCard key={v.id} video={v} />)}
-                </div>
+
+              {filteredVideos.length === 0 ? (
+                rankedShorts.length === 0 || view !== "home" || q ? (
+                  <div className="card-rise p-12 text-center">
+                    <p className="text-text-secondary">{q ? `No matches for "${q}"` : "No videos here yet."}</p>
+                    <Link to="/studio/upload" className="btn-primary inline-block mt-4">Upload one</Link>
+                  </div>
+                ) : (
+                  <div className="card-rise p-8 text-center">
+                    <p className="text-text-secondary">No long-form videos yet — watch the shorts above.</p>
+                    <Link to="/studio/upload" search={{ type: "long" } as any} className="btn-primary inline-block mt-4">Upload a video</Link>
+                  </div>
+                )
+              ) : view === "home" && !q ? (
+                <>
+                  {featured && <FeaturedCard video={featured} />}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
+                    {grid.map((v: any) => <VideoCard key={v.id} video={v} />)}
+                  </div>
+                </>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
                   {filteredVideos.map((v: any) => <VideoCard key={v.id} video={v} />)}
