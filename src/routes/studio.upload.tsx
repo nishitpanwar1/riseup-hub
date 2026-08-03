@@ -6,6 +6,7 @@ import { z } from "zod";
 import toast from "react-hot-toast";
 import { Upload, Film, Zap, Clapperboard, Repeat2, X } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
+import { BackButton } from "@/components/BackButton";
 import { supabase } from "@/integrations/supabase/client";
 import { planLadder, transcodeToRenditions, transcodingSupported, type Rendition, type TranscodeProgress } from "@/lib/transcode";
 
