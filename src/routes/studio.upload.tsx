@@ -220,9 +220,11 @@ function UploadPage() {
   return (
     <div className="min-h-screen bg-bg-primary text-text-primary">
       <AppHeader />
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
-        <h1 className="text-3xl font-black uppercase mb-1">Studio · upload</h1>
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-8 pb-safe-nav lg:pb-8">
+        <div className="hidden lg:block mb-2"><BackButton label="Back" /></div>
+        <h1 className="text-2xl sm:text-3xl font-black uppercase mb-1">Studio · upload</h1>
         <p className="text-text-secondary mb-6">No size cap · streams directly · auto-thumbnail</p>
+
 
         {search.remix && (
           <div className="mb-5 flex items-center gap-3 p-3 rounded-xl border border-brand-orange/40 bg-brand-orange/10">
