@@ -48,6 +48,9 @@ function UploadPage() {
   const [probe, setProbe] = useState<Probe | null>(null);
   const [thumbFile, setThumbFile] = useState<File | null>(null);
   const [thumbPreview, setThumbPreview] = useState<string | null>(null);
+  const [candidates, setCandidates] = useState<{ url: string; blob: Blob }[]>([]);
+  const [candidateIdx, setCandidateIdx] = useState(0);
+  const [genThumbs, setGenThumbs] = useState(false);
   const [progress, setProgress] = useState(0);
   const [stage, setStage] = useState("");
   const [optimize, setOptimize] = useState(true);
