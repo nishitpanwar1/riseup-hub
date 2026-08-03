@@ -146,4 +146,5 @@
   100% { transform: translateX(200%); }
 }
 
-html, body { overflow-x: clip; max-width: 100%; }
+html { overflow-x: clip; max-width: 100%; }
+body { max-width: 100%; -webkit-tap-highlight-color: transparent; }
