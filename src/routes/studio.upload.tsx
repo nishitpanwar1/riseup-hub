@@ -74,11 +74,24 @@ function UploadPage() {
 
   const handleFile = async (f: File | null) => {
     setProbe(null); setFile(f);
+    candidates.forEach(c => URL.revokeObjectURL(c.url));
+    setCandidates([]); setCandidateIdx(0);
     if (!f) return;
     // Non-blocking probe: don't hold the UI on codec checks.
     probeVideo(f).then(setProbe).catch(() => {
       toast.error("Could not read video metadata — try MP4/H.264");
     });
+    // Auto-generate 3 thumbnail choices from different points in the video.
+    setGenThumbs(true);
+    try {
+      const dur = await probeVideo(f).then(p => p.duration).catch(() => 0);
+      const points = dur > 2 ? [dur * 0.1, dur * 0.4, dur * 0.75] : [0.2, 0.5, 0.9];
+      const blobs = await Promise.all(points.map(p => captureVideoThumbnail(f, p).catch(() => null)));
+      const list = blobs.filter(Boolean).map(b => ({ blob: b as Blob, url: URL.createObjectURL(b as Blob) }));
+      setCandidates(list);
+    } finally {
+      setGenThumbs(false);
+    }
   };
 
   const handleThumb = (f: File | null) => {
@@ -98,10 +111,13 @@ function UploadPage() {
     try {
       setProgress(3);
       setStage("Preparing…");
-      // Start thumbnail generation in parallel with the video work.
+      // Thumbnail priority: uploaded image → picked auto-frame → captured frame.
+      const picked = candidates[candidateIdx];
       const thumbPromise: Promise<{ blob: Blob; ext: string; type: string } | null> = thumbFile
         ? Promise.resolve({ blob: thumbFile, ext: (thumbFile.name.split(".").pop() || "jpg").toLowerCase(), type: thumbFile.type || "image/jpeg" })
-        : captureVideoThumbnail(file).then(b => (b ? { blob: b, ext: "jpg", type: "image/jpeg" } : null)).catch(() => null);
+        : picked
+          ? Promise.resolve({ blob: picked.blob, ext: "jpg", type: "image/jpeg" })
+          : captureVideoThumbnail(file).then(b => (b ? { blob: b, ext: "jpg", type: "image/jpeg" } : null)).catch(() => null);
 
       const dims = probe ?? await probeVideo(file).catch(() => null);
       const folder = isShort ? "shorts" : "videos";
