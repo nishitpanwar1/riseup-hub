@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 import {
-  BarChart3, Eye, Film, Heart, MessageCircle, Upload, Users, Trash2, LayoutDashboard,
+  Eye, Film, Heart, MessageCircle, Upload, Users, Trash2, LayoutDashboard,
   Clapperboard, UserCog, Camera, Clock, TrendingUp, Send, ShoppingBag, Zap, Bookmark,
 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -658,5 +658,3 @@ function timeAgo(iso: string) {
   if (d < 86400 * 7) return `${Math.floor(d / 86400)}d ago`;
   return new Date(iso).toLocaleDateString();
 }
-
-export { BarChart3 };
