@@ -60,8 +60,25 @@ function AuthPage() {
   };
 
   const google = async () => {
-    const r = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin + "/feed" });
-    if (r.error) toast.error(r.error.message ?? "Google sign-in failed");
+    try {
+      const r: any = await lovable.auth.signInWithOAuth("google", {
+        redirect_uri: window.location.origin,
+        extraParams: { prompt: "select_account" },
+      });
+      if (r?.error) {
+        toast.error(r.error.message ?? "Google sign-in failed");
+        return;
+      }
+      if (r?.redirected) return; // browser is navigating to Google
+      // Tokens received and session set — go to the feed.
+      const { data } = await supabase.auth.getSession();
+      if (data.session) {
+        toast.success("Welcome to the arena.");
+        nav({ to: "/feed", replace: true });
+      }
+    } catch (e: any) {
+      toast.error(e?.message ?? "Google sign-in failed");
+    }
   };
 
   return (
