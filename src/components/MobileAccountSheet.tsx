@@ -1,4 +1,5 @@
 import { Link, useNavigate } from "@tanstack/react-router";
+import { createPortal } from "react-dom";
 import { useEffect } from "react";
 import {
   BarChart3, Bell, ChevronRight, Clock, Heart, History as HistoryIcon,
@@ -28,8 +29,14 @@ export function MobileAccountSheet({ open, onClose, username, displayName, avata
     if (!open) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
   }, [open, onClose]);
+
 
   if (!open) return null;
 
@@ -55,11 +62,14 @@ export function MobileAccountSheet({ open, onClose, username, displayName, avata
     </Link>
   );
 
-  return (
+  // Rendered through a portal: the header uses backdrop-blur, which would
+  // otherwise become the containing block and trap this fixed overlay.
+  return createPortal(
     <div className="lg:hidden fixed inset-0 z-[70]">
+
       <button aria-label="Close menu" onClick={onClose} className="absolute inset-0 bg-black/70" />
-      <div className="absolute inset-x-0 bottom-0 max-h-[88vh] overflow-y-auto overscroll-contain rounded-t-3xl bg-bg-card border-t border-rise pb-[env(safe-area-inset-bottom)]">
-        <div className="sticky top-0 bg-bg-card/95 backdrop-blur px-5 pt-3 pb-3 border-b border-rise">
+      <div className="absolute inset-x-0 bottom-0 top-10 flex flex-col overflow-hidden rounded-t-3xl bg-bg-card border-t border-rise">
+        <div className="shrink-0 bg-bg-card px-5 pt-3 pb-3 border-b border-rise">
           <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-bg-surface" />
           <div className="flex items-center gap-3">
             <UserAvatar src={avatarUrl} name={displayName ?? username} className="w-12 h-12" />
@@ -83,30 +93,34 @@ export function MobileAccountSheet({ open, onClose, username, displayName, avata
           )}
         </div>
 
-        <div className="py-1">
-          <Row to="/studio" icon={<BarChart3 className="w-5 h-5" />} label="RiseUp Studio" sub="Dashboard, content, insights, comments" />
-          <Row to="/studio/upload" icon={<Upload className="w-5 h-5" />} label="Upload video or short" />
-          <Row to="/studio/shop" icon={<ShoppingBag className="w-5 h-5" />} label="Your products" sub="Sell for money or tokens" />
-        </div>
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
+          <div className="py-1">
+            <Row to="/studio" icon={<BarChart3 className="w-5 h-5" />} label="RiseUp Studio" sub="Dashboard, content, insights, comments" />
+            <Row to="/studio/upload" icon={<Upload className="w-5 h-5" />} label="Upload video or short" />
+            <Row to="/studio/shop" icon={<ShoppingBag className="w-5 h-5" />} label="Your products" sub="Sell for money or tokens" />
+          </div>
 
-        <div className="border-t border-rise py-1">
-          <Row to="/feed" params={undefined} icon={<HistoryIcon className="w-5 h-5" />} label="History" />
-          <Row to="/feed" icon={<Heart className="w-5 h-5" />} label="Liked videos" />
-          <Row to="/feed" icon={<Clock className="w-5 h-5" />} label="Saved" />
-          <Row to="/rooms" icon={<Users className="w-5 h-5" />} label="Accountability rooms" />
-          <Row to="/notifications" icon={<Bell className="w-5 h-5" />} label="Notifications" />
-        </div>
+          <div className="border-t border-rise py-1">
+            <Row to="/feed" params={undefined} icon={<HistoryIcon className="w-5 h-5" />} label="History" />
+            <Row to="/feed" icon={<Heart className="w-5 h-5" />} label="Liked videos" />
+            <Row to="/feed" icon={<Clock className="w-5 h-5" />} label="Saved" />
+            <Row to="/rooms" icon={<Users className="w-5 h-5" />} label="Accountability rooms" />
+            <Row to="/notifications" icon={<Bell className="w-5 h-5" />} label="Notifications" />
+          </div>
 
-        <div className="border-t border-rise py-1">
-          <Row to="/settings" icon={<Settings className="w-5 h-5" />} label="Settings" />
-          {username && <Row to="/$username" params={{ username }} icon={<UserIcon className="w-5 h-5" />} label="Your channel" />}
-          <button onClick={signOut} className="w-full flex items-center gap-4 px-5 py-3.5 active:bg-bg-surface text-left">
-            <LogOut className="w-5 h-5 text-text-secondary shrink-0" />
-            <span className="flex-1 text-sm font-semibold">Sign out</span>
-          </button>
+          <div className="border-t border-rise py-1">
+            <Row to="/settings" icon={<Settings className="w-5 h-5" />} label="Settings" />
+            {username && <Row to="/$username" params={{ username }} icon={<UserIcon className="w-5 h-5" />} label="Your channel" />}
+            <button onClick={signOut} className="w-full flex items-center gap-4 px-5 py-3.5 active:bg-bg-surface text-left">
+              <LogOut className="w-5 h-5 text-text-secondary shrink-0" />
+              <span className="flex-1 text-sm font-semibold">Sign out</span>
+            </button>
+          </div>
         </div>
-        <div className="h-4" />
       </div>
-    </div>
+
+    </div>,
+    document.body
   );
+
 }
