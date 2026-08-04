@@ -502,23 +502,30 @@ function FeaturedCard({ video }: { video: any }) {
   const isFresh = Date.now() - new Date(video.created_at).getTime() < 1000 * 60 * 60 * 6;
   const profile = Array.isArray(video.profiles) ? video.profiles[0] : video.profiles;
   return (
-    <Link to="/watch/$id" params={{ id: video.id }} className="block card-rise overflow-hidden group">
-      <div className={`relative aspect-video bg-gradient-to-br ${CAT_BG[video.category] ?? "from-bg-card to-bg-surface"}`}>
+    <Link
+      to="/watch/$id"
+      params={{ id: video.id }}
+      className="block group -mx-3 sm:mx-0 sm:card-rise sm:overflow-hidden"
+    >
+      <div className={`relative aspect-video sm:rounded-none bg-gradient-to-br ${CAT_BG[video.category] ?? "from-bg-card to-bg-surface"}`}>
         {video.thumbnail_url && <img src={video.thumbnail_url} alt={video.title} className="w-full h-full object-cover" loading="lazy" />}
         {isFresh && (
           <span className="absolute top-3 left-3 text-[10px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-md bg-bg-surface/90 text-text-primary border border-rise">
             New
           </span>
         )}
-        <span className="absolute bottom-3 right-3 text-xs px-2 py-0.5 rounded bg-black/70 font-stat">
+        <span className="absolute bottom-2 right-2 text-[11px] px-1.5 py-0.5 rounded bg-black/80 font-stat">
           {fmtDuration(video.duration)}
         </span>
       </div>
-      <div className="p-4">
-        <h2 className="font-display font-black text-lg sm:text-xl uppercase leading-tight">{video.title}</h2>
-        <div className="mt-2 text-xs text-text-tertiary font-stat">
-          {profile && <span>@{profile.username} · </span>}
-          {formatK(video.view_count)} views · {timeAgo(video.created_at)}
+      <div className="px-3 py-3 sm:p-4 flex gap-3">
+        <UserAvatar src={profile?.avatar_url} name={profile?.display_name ?? profile?.username} className="w-9 h-9 sm:hidden" />
+        <div className="min-w-0 flex-1">
+          <h2 className="font-bold text-sm leading-snug line-clamp-2 sm:font-display sm:font-black sm:text-xl sm:uppercase">{video.title}</h2>
+          <div className="mt-1 text-xs text-text-tertiary font-stat truncate">
+            {profile && <span>@{profile.username} · </span>}
+            {formatK(video.view_count)} views · {timeAgo(video.created_at)}
+          </div>
         </div>
       </div>
     </Link>
@@ -529,7 +536,11 @@ function VideoCard({ video }: { video: any }) {
   const profile = Array.isArray(video.profiles) ? video.profiles[0] : video.profiles;
   const badge = CAT_BADGE[video.category] ?? "bg-bg-surface text-text-secondary";
   return (
-    <Link to="/watch/$id" params={{ id: video.id }} className="card-rise overflow-hidden group block">
+    <Link
+      to="/watch/$id"
+      params={{ id: video.id }}
+      className="block group -mx-3 sm:mx-0 sm:card-rise sm:overflow-hidden"
+    >
       <div className={`relative aspect-video bg-gradient-to-br ${CAT_BG[video.category] ?? "from-bg-card to-bg-surface"}`}>
         {video.thumbnail_url ? (
           <img src={video.thumbnail_url} alt={video.title} className="w-full h-full object-cover opacity-90 group-hover:opacity-100" loading="lazy" />
@@ -539,22 +550,22 @@ function VideoCard({ video }: { video: any }) {
             onMouseLeave={(e) => { e.currentTarget.pause(); e.currentTarget.currentTime = 0; }}
             className="w-full h-full object-cover" />
         )}
-        <span className={`absolute top-2 left-2 text-[10px] px-2 py-0.5 rounded uppercase font-bold tracking-wider ${badge}`}>{video.category}</span>
-        <span className="absolute bottom-2 right-2 text-xs px-2 py-0.5 rounded bg-black/70 font-stat">{fmtDuration(video.duration)}</span>
+        <span className={`hidden sm:inline absolute top-2 left-2 text-[10px] px-2 py-0.5 rounded uppercase font-bold tracking-wider ${badge}`}>{video.category}</span>
+        <span className="absolute bottom-2 right-2 text-[11px] px-1.5 py-0.5 rounded bg-black/80 font-stat">{fmtDuration(video.duration)}</span>
       </div>
-      <div className="p-3 flex gap-3">
+      <div className="px-3 py-3 sm:p-3 flex gap-3">
         <UserAvatar src={profile?.avatar_url} name={profile?.display_name ?? profile?.username} />
         <div className="min-w-0 flex-1">
           <h3 className="font-bold leading-snug line-clamp-2 text-sm">{video.title}</h3>
-          {profile && <div className="text-xs text-text-secondary mt-1">{profile.display_name ?? profile.username}</div>}
-          <div className="text-xs text-text-tertiary font-stat mt-0.5">
-            {formatK(video.view_count)} views · {timeAgo(video.created_at)}
+          <div className="text-xs text-text-tertiary font-stat mt-1 truncate">
+            {profile ? `${profile.display_name ?? profile.username} · ` : ""}{formatK(video.view_count)} views · {timeAgo(video.created_at)}
           </div>
         </div>
       </div>
     </Link>
   );
 }
+
 
 function StreakBars({ current }: { current: number }) {
   // 7-day visualization — bars filled up to `current` (max 7), with growing height
@@ -620,7 +631,7 @@ function ShortsShelf({ shorts }: { shorts: any[] }) {
     el.scrollBy({ left: dir * el.clientWidth * 0.9, behavior: "smooth" });
   };
   return (
-    <section className="card-rise p-4">
+    <section className="-mx-3 px-3 py-4 border-y border-rise sm:mx-0 sm:card-rise sm:border sm:p-4">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <span className="w-7 h-7 rounded-lg bg-gradient-to-br from-red-500 to-pink-600 flex items-center justify-center">
@@ -629,16 +640,17 @@ function ShortsShelf({ shorts }: { shorts: any[] }) {
           <h2 className="font-display font-black text-lg uppercase tracking-tight">Shorts</h2>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => scroll(-1)} className="w-8 h-8 rounded-full bg-bg-surface border border-rise flex items-center justify-center hover:bg-bg-card" aria-label="Scroll left">
+          <button onClick={() => scroll(-1)} className="hidden sm:flex w-8 h-8 rounded-full bg-bg-surface border border-rise items-center justify-center hover:bg-bg-card" aria-label="Scroll left">
             <ChevronLeft className="w-4 h-4" />
           </button>
-          <button onClick={() => scroll(1)} className="w-8 h-8 rounded-full bg-bg-surface border border-rise flex items-center justify-center hover:bg-bg-card" aria-label="Scroll right">
+          <button onClick={() => scroll(1)} className="hidden sm:flex w-8 h-8 rounded-full bg-bg-surface border border-rise items-center justify-center hover:bg-bg-card" aria-label="Scroll right">
             <ChevronRight className="w-4 h-4" />
           </button>
           <Link to="/shorts" className="text-xs font-bold uppercase tracking-wider text-text-secondary hover:text-text-primary ml-1">See all</Link>
         </div>
       </div>
-      <div ref={railRef} className="flex gap-3 overflow-x-auto scrollbar-none snap-x snap-mandatory" style={{ scrollbarWidth: "none" }}>
+      <div ref={railRef} className="flex gap-2 sm:gap-3 overflow-x-auto scrollbar-none snap-x" style={{ scrollbarWidth: "none" }}>
+
         {shorts.map((s: any) => {
           const p = Array.isArray(s.profiles) ? s.profiles[0] : s.profiles;
           return (

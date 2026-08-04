@@ -54,7 +54,8 @@ function UploadPage() {
   const [genThumbs, setGenThumbs] = useState(false);
   const [progress, setProgress] = useState(0);
   const [stage, setStage] = useState("");
-  const [optimize, setOptimize] = useState(true);
+  // Quality ladder is always applied automatically when the browser supports it.
+  const optimize = true;
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<Vals>({
     resolver: zodResolver(schema),
     defaultValues: { category: "discipline" },
@@ -336,24 +337,8 @@ function UploadPage() {
             <input {...register("tags")} placeholder="cold, discipline, morning" className="w-full px-3 py-2.5" />
           </Field>
 
-          <div className="rounded-xl border border-rise bg-bg-surface p-4">
-            <label className="flex items-start gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={optimize}
-                onChange={(e) => setOptimize(e.target.checked)}
-                className="mt-1 w-4 h-4 accent-brand-orange"
-              />
-              <span className="flex-1">
-                <span className="font-bold text-sm block">Optimise quality ladder (free, in your browser)</span>
-                <span className="text-xs text-text-tertiary block mt-0.5">
-                  Encodes 360p / 720p / 1080p H.264 with fast-start so viewers get instant playback and
-                  can pick a quality. Slower to publish, and skipped for files over 600&nbsp;MB.
-                  {probe && ` Planned: ${planLadder(probe.width, probe.height).map(p => `${p}p`).join(" · ")}`}
-                </span>
-              </span>
-            </label>
-          </div>
+
+
 
           {progress > 0 && (
             <div>
