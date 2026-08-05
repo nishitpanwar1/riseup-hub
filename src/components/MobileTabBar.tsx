@@ -34,7 +34,7 @@ export function MobileTabBar({ username }: { username?: string | null }) {
           <span className="truncate">Rooms</span>
         </Link>
         {username ? (
-          <Link to="/$username" params={{ username }} className={item(pathname === `/${username}`)}>
+          <Link to="/$username" params={{ username }} search={{ view: "you" } as any} className={item(pathname === `/${username}`)}>
             <UserIcon className="w-5 h-5 shrink-0" />
             <span className="truncate">You</span>
           </Link>

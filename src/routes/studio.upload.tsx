@@ -10,7 +10,9 @@ import { BackButton } from "@/components/BackButton";
 import { supabase } from "@/integrations/supabase/client";
 import { planLadder, transcodeToRenditions, transcodingSupported, type Rendition, type TranscodeProgress } from "@/lib/transcode";
 
-const MAX_TRANSCODE_BYTES = 600 * 1024 * 1024;
+// ffmpeg.wasm keeps the source and every output in browser memory. Keep the
+// automatic ladder conservative on phones; larger files upload directly.
+const MAX_TRANSCODE_BYTES = 120 * 1024 * 1024;
 
 type Search = { type?: "short" | "long"; remix?: string; title?: string; source?: string };
 
@@ -132,16 +134,23 @@ function UploadPage() {
         // ---- Free in-browser encode: 360p / 720p / 1080p H.264 + faststart ----
         const targets = planLadder(dims.width, dims.height);
         setStage(`Loading encoder…`);
-        const outputs = await transcodeToRenditions(file, {
-          width: dims.width,
-          height: dims.height,
-          targets,
-          onProgress: (p: TranscodeProgress) => {
-            setStage(`Encoding ${p.label} (${p.step}/${p.totalSteps})`);
-            setProgress(Math.round(4 + p.overall * 51)); // 4% → 55%
-          },
-        });
-        if (outputs.length === 0) throw new Error("Encoding produced no output — try a different file.");
+        let outputs: Awaited<ReturnType<typeof transcodeToRenditions>> = [];
+        try {
+          outputs = await transcodeToRenditions(file, {
+            width: dims.width,
+            height: dims.height,
+            targets,
+            onProgress: (p: TranscodeProgress) => {
+              setStage(`Encoding ${p.label} (${p.step}/${p.totalSteps})`);
+              setProgress(Math.round(4 + p.overall * 51)); // 4% → 55%
+            },
+          });
+        } catch (encodeError) {
+          // CDN restrictions, low-memory phones and unsupported WebAssembly
+          // must never prevent publishing. Fall back to the original file.
+          console.warn("Automatic quality encoding unavailable; uploading original", encodeError);
+          setStage("Encoder unavailable · uploading original");
+        }
 
         for (let i = 0; i < outputs.length; i++) {
           const out = outputs[i];
@@ -155,8 +164,10 @@ function UploadPage() {
           renditions.push({ label: out.label, height: out.height, url: pub.publicUrl, bytes: out.blob.size });
         }
         // default playback = highest rendition available
-        playbackUrl = [...renditions].sort((a, b) => a.height - b.height).pop()!.url;
-      } else {
+        playbackUrl = [...renditions].sort((a, b) => a.height - b.height).pop()?.url ?? "";
+      }
+
+      if (!playbackUrl) {
         // ---- Direct passthrough upload ----
         setStage("Uploading video");
         const ext = (file.name.split(".").pop() || "mp4").toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -212,7 +223,8 @@ function UploadPage() {
       nav({ to: isShort ? "/shorts" : "/feed" });
     } catch (e: any) {
       console.error(e);
-      toast.error(e.message ?? "Upload failed");
+      const message = e instanceof Error && e.message ? e.message : "Upload failed. Please try again.";
+      toast.error(message);
       setProgress(0);
       setStage("");
     }
@@ -225,7 +237,7 @@ function UploadPage() {
       <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-8 pb-safe-nav lg:pb-8">
         <div className="hidden lg:block mb-2"><BackButton label="Back" /></div>
         <h1 className="text-2xl sm:text-3xl font-black uppercase mb-1">Studio · upload</h1>
-        <p className="text-text-secondary mb-6">No size cap · streams directly · auto-thumbnail</p>
+        <p className="text-text-secondary mb-6">Direct upload · automatic playback quality · auto-thumbnail</p>
 
 
         {search.remix && (
@@ -373,7 +385,11 @@ function Field({ label, children, error }: { label: string; children: React.Reac
 }
 
 async function uploadCloudStorageWithProgress(bucket: string, path: string, file: Blob, contentType: string, onProgress: (pct: number) => void) {
-  const { data } = await supabase.auth.getSession();
+  let { data } = await supabase.auth.getSession();
+  if (!data.session?.access_token) {
+    const refreshed = await supabase.auth.refreshSession();
+    data = refreshed.data;
+  }
   const token = data.session?.access_token;
   if (!token) throw new Error("Sign in again before uploading.");
   const baseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -398,7 +414,14 @@ async function uploadCloudStorageWithProgress(bucket: string, path: string, file
         onProgress(100);
         resolve();
       } else {
-        reject(new Error(xhr.responseText || `Video upload failed with status ${xhr.status}`));
+        let detail = "";
+        try {
+          const body = JSON.parse(xhr.responseText);
+          detail = body.message || body.error || "";
+        } catch {
+          detail = xhr.responseText;
+        }
+        reject(new Error(detail || `Video upload failed with status ${xhr.status}`));
       }
     };
     xhr.onerror = () => reject(new Error("Video upload failed. Please check your connection and try again."));
