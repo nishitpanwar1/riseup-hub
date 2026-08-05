@@ -199,7 +199,7 @@ function MediaRail({ title, rows, empty }: { title: string; rows: any[]; empty: 
       {unique.length ? <div className="flex gap-3 overflow-x-auto scrollbar-none pb-2">{unique.map((row) => {
         const video = Array.isArray(row.videos) ? row.videos[0] : row.videos;
         const to = video?.is_short ? "/shorts" : "/watch/$id";
-        return <Link key={`${title}-${row.video_id}`} to={to as any} params={video?.is_short ? undefined : { id: row.video_id }} className="w-44 shrink-0">
+        return <Link key={`${title}-${row.video_id}`} to={to as any} params={(video?.is_short ? undefined : { id: row.video_id }) as any} className="w-44 shrink-0">
           <div className="aspect-video rounded-lg overflow-hidden bg-bg-surface relative"><img src={video?.thumbnail_url} alt={video?.title ?? "Video"} className="w-full h-full object-cover" /><PlaySquare className="absolute bottom-2 right-2 w-4 h-4" /></div>
           <p className="mt-2 text-sm font-semibold line-clamp-2">{video?.title}</p>
         </Link>;
