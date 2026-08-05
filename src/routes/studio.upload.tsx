@@ -237,7 +237,7 @@ function UploadPage() {
       <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-8 pb-safe-nav lg:pb-8">
         <div className="hidden lg:block mb-2"><BackButton label="Back" /></div>
         <h1 className="text-2xl sm:text-3xl font-black uppercase mb-1">Studio · upload</h1>
-        <p className="text-text-secondary mb-6">No size cap · streams directly · auto-thumbnail</p>
+        <p className="text-text-secondary mb-6">Direct upload · automatic playback quality · auto-thumbnail</p>
 
 
         {search.remix && (
