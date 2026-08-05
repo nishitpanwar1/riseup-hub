@@ -101,9 +101,9 @@ export function MobileAccountSheet({ open, onClose, username, displayName, avata
           </div>
 
           <div className="border-t border-rise py-1">
-            <Row to="/feed" params={undefined} icon={<HistoryIcon className="w-5 h-5" />} label="History" />
-            <Row to="/feed" icon={<Heart className="w-5 h-5" />} label="Liked videos" />
-            <Row to="/feed" icon={<Clock className="w-5 h-5" />} label="Saved" />
+            <Row to="/feed" params={{ view: "history" }} icon={<HistoryIcon className="w-5 h-5" />} label="History" />
+            <Row to="/feed" params={{ view: "liked" }} icon={<Heart className="w-5 h-5" />} label="Liked videos" />
+            <Row to="/feed" params={{ view: "later" }} icon={<Clock className="w-5 h-5" />} label="Saved" />
             <Row to="/rooms" icon={<Users className="w-5 h-5" />} label="Accountability rooms" />
             <Row to="/notifications" icon={<Bell className="w-5 h-5" />} label="Notifications" />
           </div>

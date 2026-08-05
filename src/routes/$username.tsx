@@ -1,20 +1,32 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import { ResponsiveContainer, AreaChart, Area, XAxis, Tooltip, CartesianGrid } from "recharts";
-import { Flame, BadgeCheck, Eye, Users } from "lucide-react";
+import { Flame, BadgeCheck, Eye, Users, ChevronRight, History, Bookmark, PlaySquare, Settings, BarChart3 } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { UserAvatar } from "@/components/UserAvatar";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/$username")({
+  validateSearch: (search: Record<string, unknown>) => ({ view: search.view === "you" ? "you" : undefined }),
+  head: () => ({
+    meta: [
+      { title: "Creator channel | RiseUp" },
+      { name: "description", content: "Watch creator videos, shorts, and activity on RiseUp." },
+      { property: "og:title", content: "Creator channel | RiseUp" },
+      { property: "og:description", content: "Watch creator videos, shorts, and activity on RiseUp." },
+      { property: "og:type", content: "profile" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
   component: ProfilePage,
 });
 
 function ProfilePage() {
   const { username } = Route.useParams();
   const { user } = useAuth();
+  const qc = useQueryClient();
   const [tab, setTab] = useState<"videos" | "saves">("videos");
 
   const { data: profile } = useQuery({
@@ -53,11 +65,39 @@ function ProfilePage() {
     },
   });
 
-  // Synthetic weekly chart from streak data
-  const chartData = Array.from({ length: 7 }).map((_, i) => ({
-    day: ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"][i],
-    watch: Math.max(0, Math.round(((streak?.current_streak ?? 0) / 7) + Math.sin(i) * 1.5 + 2)),
-  }));
+  const isOwner = !!user && profile?.id === user.id;
+  const { data: library } = useQuery({
+    queryKey: ["you-library", user?.id],
+    enabled: isOwner,
+    queryFn: async () => {
+      const [historyRes, savedRes] = await Promise.all([
+        supabase.from("video_views").select("video_id, created_at, seconds_watched, videos(id,title,thumbnail_url,is_short,duration)").eq("user_id", user?.id ?? "").order("created_at", { ascending: false }).limit(100),
+        supabase.from("video_saves").select("video_id, created_at, videos(id,title,thumbnail_url,is_short,duration)").eq("user_id", user?.id ?? "").order("created_at", { ascending: false }).limit(30),
+      ]);
+      if (historyRes.error) throw historyRes.error;
+      if (savedRes.error) throw savedRes.error;
+      return { history: historyRes.data ?? [], saved: savedRes.data ?? [] };
+    },
+  });
+
+  useEffect(() => {
+    if (!isOwner || !user?.id) return;
+    const channel = supabase
+      .channel(`you-live-${user.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "video_views", filter: `user_id=eq.${user.id}` }, () => qc.invalidateQueries({ queryKey: ["you-library", user.id] }))
+      .on("postgres_changes", { event: "*", schema: "public", table: "video_saves", filter: `user_id=eq.${user.id}` }, () => qc.invalidateQueries({ queryKey: ["you-library", user.id] }))
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${user.id}` }, () => qc.invalidateQueries({ queryKey: ["profile", username] }))
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [isOwner, qc, user?.id, username]);
+
+  const history = (library?.history ?? []) as any[];
+  const chartData = Array.from({ length: 7 }).map((_, i) => {
+    const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - (6 - i));
+    const next = new Date(d); next.setDate(next.getDate() + 1);
+    const rows = history.filter((row) => { const at = +new Date(row.created_at); return at >= +d && at < +next; });
+    return { day: d.toLocaleDateString(undefined, { weekday: "short" }), minutes: Math.round(rows.reduce((sum, row) => sum + Number(row.seconds_watched ?? 0), 0) / 60) };
+  });
 
   if (!profile) {
     return <div className="min-h-screen bg-bg-primary"><AppHeader /><div className="p-8 text-text-secondary">Profile not found</div></div>;
@@ -88,26 +128,38 @@ function ProfilePage() {
           </div>
         </div>
 
-        {/* Chart */}
-        <div className="card-rise p-5 mt-6">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-text-tertiary mb-3">Watch consistency · last 7 days</h3>
+        {isOwner && (
+          <>
+            <section className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <QuickLink to="/studio" icon={<BarChart3 />} label="Studio" />
+              <QuickLink to="/feed" search={{ view: "history" }} icon={<History />} label="History" />
+              <QuickLink to="/feed" search={{ view: "later" }} icon={<Bookmark />} label="Saved" />
+              <QuickLink to="/settings" icon={<Settings />} label="Settings" />
+            </section>
+            <MediaRail title="History" rows={history} empty="Videos you watch will appear here." />
+            <MediaRail title="Saved" rows={(library?.saved ?? []) as any[]} empty="Your saved videos will appear here." />
+          </>
+        )}
+
+        {isOwner && <div className="card-rise p-5 mt-6">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-text-tertiary mb-3">Real watch time · last 7 days</h3>
           <div className="h-48">
             <ResponsiveContainer>
               <AreaChart data={chartData}>
                 <defs>
                   <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#FF6B2F" stopOpacity={0.7} />
-                    <stop offset="100%" stopColor="#FF6B2F" stopOpacity={0} />
+                    <stop offset="0%" stopColor="var(--color-brand-orange)" stopOpacity={0.7} />
+                    <stop offset="100%" stopColor="var(--color-brand-orange)" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid stroke="#4A2D7A" vertical={false} />
-                <XAxis dataKey="day" stroke="#7A6D96" />
-                <Tooltip contentStyle={{ background: "#2D1155", border: "1px solid #4A2D7A", borderRadius: 8 }} />
-                <Area type="monotone" dataKey="watch" stroke="#FF6B2F" strokeWidth={2} fill="url(#g1)" />
+                <CartesianGrid stroke="var(--color-border-rise)" vertical={false} />
+                <XAxis dataKey="day" stroke="var(--color-text-tertiary)" />
+                <Tooltip contentStyle={{ background: "var(--color-bg-card)", border: "1px solid var(--color-border-rise)", borderRadius: 8 }} formatter={(value) => [`${value} min`, "Watch time"]} />
+                <Area type="monotone" dataKey="minutes" stroke="var(--color-brand-orange)" strokeWidth={2} fill="url(#g1)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
-        </div>
+        </div>}
 
         {/* Tabs */}
         <div className="mt-6 flex gap-2 border-b border-rise">
@@ -132,6 +184,27 @@ function ProfilePage() {
         </div>
       </div>
     </div>
+  );
+}
+
+function QuickLink({ to, search, icon, label }: { to: string; search?: Record<string, string>; icon: React.ReactNode; label: string }) {
+  return <Link to={to as any} search={search as any} className="card-rise p-3 flex items-center gap-3 text-sm font-bold hover:border-brand-orange">{icon}<span>{label}</span></Link>;
+}
+
+function MediaRail({ title, rows, empty }: { title: string; rows: any[]; empty: string }) {
+  const unique = rows.filter((row, index) => row.videos && rows.findIndex((candidate) => candidate.video_id === row.video_id) === index).slice(0, 10);
+  return (
+    <section className="mt-6">
+      <div className="mb-3 flex items-center justify-between"><h2 className="text-lg font-black">{title}</h2><ChevronRight className="w-5 h-5 text-text-tertiary" /></div>
+      {unique.length ? <div className="flex gap-3 overflow-x-auto scrollbar-none pb-2">{unique.map((row) => {
+        const video = Array.isArray(row.videos) ? row.videos[0] : row.videos;
+        const to = video?.is_short ? "/shorts" : "/watch/$id";
+        return <Link key={`${title}-${row.video_id}`} to={to as any} params={video?.is_short ? undefined : { id: row.video_id }} className="w-44 shrink-0">
+          <div className="aspect-video rounded-lg overflow-hidden bg-bg-surface relative"><img src={video?.thumbnail_url} alt={video?.title ?? "Video"} className="w-full h-full object-cover" /><PlaySquare className="absolute bottom-2 right-2 w-4 h-4" /></div>
+          <p className="mt-2 text-sm font-semibold line-clamp-2">{video?.title}</p>
+        </Link>;
+      })}</div> : <p className="text-sm text-text-tertiary py-4">{empty}</p>}
+    </section>
   );
 }
 
