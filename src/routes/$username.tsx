@@ -108,18 +108,18 @@ function ProfilePage() {
   return (
     <div className="min-h-screen bg-bg-primary text-text-primary">
       <AppHeader />
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
-        <div className="card-rise p-6 sm:p-8">
-          <div className="flex items-start gap-5 flex-wrap">
-            <UserAvatar src={profile.avatar_url} name={profile.display_name ?? profile.username} className="w-20 h-20 text-3xl border-2 border-brand-purple" />
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 overflow-hidden">
+        <div className="card-rise p-5 sm:p-8 overflow-hidden">
+          <div className="flex items-center sm:items-start gap-4 sm:gap-5">
+            <UserAvatar src={profile.avatar_url} name={profile.display_name || profile.username} className="w-20 h-20 text-3xl border-2 border-brand-purple" />
             <div className="flex-1 min-w-0">
-              <h1 className="text-3xl font-black uppercase flex items-center gap-2">
-                {profile.display_name}
+              <h1 className="text-xl sm:text-3xl font-black flex items-center gap-2 min-w-0">
+                <span className="truncate">{profile.display_name || profile.username}</span>
                 <BadgeCheck className={`w-6 h-6 ${tierColor[profile.creator_tier as keyof typeof tierColor]}`} />
               </h1>
-              <p className="text-text-secondary">@{profile.username}</p>
+              <p className="text-sm text-text-secondary truncate">@{profile.username}</p>
               {profile.bio && <p className="mt-2 text-text-primary">{profile.bio}</p>}
-              <div className="flex gap-4 mt-4 text-sm font-stat">
+              <div className="grid grid-cols-3 gap-2 mt-3 text-xs sm:text-sm font-stat">
                 <Stat icon={<Users className="w-4 h-4" />} label="followers" value={profile.follower_count ?? 0} />
                 <Stat icon={<Eye className="w-4 h-4" />} label="total views" value={Number(profile.total_views ?? 0)} />
                 <Stat icon={<Flame className="w-4 h-4 text-brand-orange" />} label="streak" value={streak?.current_streak ?? 0} />
@@ -216,8 +216,9 @@ function TabBtn({ active, onClick, children }: { active: boolean; onClick: () =>
 
 function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; value: number | string }) {
   return (
-    <div className="flex items-center gap-1.5 text-text-secondary">
-      {icon}<span className="font-bold text-text-primary">{value}</span><span className="text-text-tertiary">{label}</span>
+    <div className="min-w-0 text-text-secondary text-center sm:text-left">
+      <div className="flex items-center justify-center sm:justify-start gap-1">{icon}<span className="font-bold text-text-primary">{value}</span></div>
+      <span className="block text-text-tertiary truncate">{label}</span>
     </div>
   );
 }
