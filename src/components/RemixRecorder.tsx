@@ -20,6 +20,7 @@ export function RemixRecorder({ sound, onClose, onCaptured }: Props) {
   const chunksRef = useRef<BlobPart[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   const tickRef = useRef<number | undefined>(undefined);
+  const elapsedRef = useRef(0);
 
   const [ready, setReady] = useState(false);
   const [recording, setRecording] = useState(false);
@@ -101,7 +102,6 @@ export function RemixRecorder({ sound, onClose, onCaptured }: Props) {
     }, 100);
   };
 
-  const elapsedRef = useRef(0);
   const pct = Math.min(100, (elapsed / maxSeconds) * 100);
 
   if (typeof document === "undefined") return null;
