@@ -187,19 +187,18 @@ function UploadPage() {
       }
       // Thumbnail priority: uploaded image → picked auto-frame → captured frame.
       const picked = candidates[candidateIdx];
-      const file = sourceFile; // downstream steps always use the remixed/original clip
       const thumbPromise: Promise<{ blob: Blob; ext: string; type: string } | null> = thumbFile
         ? Promise.resolve({ blob: thumbFile, ext: (thumbFile.name.split(".").pop() || "jpg").toLowerCase(), type: thumbFile.type || "image/jpeg" })
         : picked
           ? Promise.resolve({ blob: picked.blob, ext: "jpg", type: "image/jpeg" })
-          : captureVideoThumbnail(file).then(b => (b ? { blob: b, ext: "jpg", type: "image/jpeg" } : null)).catch(() => null);
+          : captureVideoThumbnail(sourceFile).then(b => (b ? { blob: b, ext: "jpg", type: "image/jpeg" } : null)).catch(() => null);
 
-      const dims = probe ?? await probeVideo(file).catch(() => null);
+      const dims = probe ?? await probeVideo(sourceFile).catch(() => null);
       const folder = isShort ? "shorts" : "videos";
       const renditions: Rendition[] = [];
       let playbackUrl = "";
 
-      const useWasm = optimize && !!dims && transcodingSupported() && file.size <= MAX_TRANSCODE_BYTES;
+      const useWasm = optimize && !!dims && transcodingSupported() && sourceFile.size <= MAX_TRANSCODE_BYTES;
 
       if (useWasm && dims) {
         // ---- Free in-browser encode: 360p / 720p / 1080p H.264 + faststart ----
@@ -207,7 +206,7 @@ function UploadPage() {
         setStage(`Loading encoder…`);
         let outputs: Awaited<ReturnType<typeof transcodeToRenditions>> = [];
         try {
-          outputs = await transcodeToRenditions(file, {
+          outputs = await transcodeToRenditions(sourceFile, {
             width: dims.width,
             height: dims.height,
             targets,
@@ -218,7 +217,7 @@ function UploadPage() {
           });
         } catch (encodeError) {
           // CDN restrictions, low-memory phones and unsupported WebAssembly
-          // must never prevent publishing. Fall back to the original file.
+          // must never prevent publishing. Fall back to the original sourceFile.
           console.warn("Automatic quality encoding unavailable; uploading original", encodeError);
           setStage("Encoder unavailable · uploading original");
         }
@@ -241,9 +240,9 @@ function UploadPage() {
       if (!playbackUrl) {
         // ---- Direct passthrough upload ----
         setStage("Uploading video");
-        const ext = (file.name.split(".").pop() || "mp4").toLowerCase().replace(/[^a-z0-9]/g, "");
+        const ext = (sourceFile.name.split(".").pop() || "mp4").toLowerCase().replace(/[^a-z0-9]/g, "");
         const videoPath = `${userId}/${folder}/${crypto.randomUUID()}.${ext}`;
-        await uploadCloudStorageWithProgress("videos", videoPath, file, file.type || "video/mp4", (pct) => {
+        await uploadCloudStorageWithProgress("videos", videoPath, sourceFile, sourceFile.type || "video/mp4", (pct) => {
           setProgress(Math.max(6, Math.min(80, Math.round(6 + pct * 0.74))));
         });
         const { data: pub } = supabase.storage.from("videos").getPublicUrl(videoPath);
