@@ -9,7 +9,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/$username")({
-  validateSearch: (search: Record<string, unknown>) => ({ view: search.view === "you" ? "you" : undefined }),
+  validateSearch: (search: Record<string, unknown>): { view?: "you" } =>
+    search.view === "you" ? { view: "you" } : {},
   head: () => ({
     meta: [
       { title: "Creator channel | RiseUp" },
