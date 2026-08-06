@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ImageResponse } from "workers-og";
 
 /**
  * Dynamic OpenGraph image engine.
@@ -148,13 +147,22 @@ export const Route = createFileRoute("/api/public/og")({
             </div>
           </div>`;
 
-        return new ImageResponse(html, {
-          width: 1200,
-          height: 630,
-          headers: {
-            "Cache-Control": "public, max-age=300, s-maxage=600, stale-while-revalidate=86400",
-          },
-        });
+        const cache = "public, max-age=300, s-maxage=600, stale-while-revalidate=86400";
+        try {
+          // Loaded lazily: the renderer ships WebAssembly that only resolves in
+          // the edge runtime, so local dev falls back to the SVG card below.
+          const { ImageResponse } = await import("workers-og");
+          return new ImageResponse(html, {
+            width: 1200,
+            height: 630,
+            headers: { "Cache-Control": cache },
+          });
+        } catch {
+          const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630"><foreignObject width="1200" height="630"><div xmlns="http://www.w3.org/1999/xhtml">${html}</div></foreignObject></svg>`;
+          return new Response(svg, {
+            headers: { "Content-Type": "image/svg+xml", "Cache-Control": cache },
+          });
+        }
       },
     },
   },
