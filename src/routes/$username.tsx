@@ -7,18 +7,21 @@ import { AppHeader } from "@/components/AppHeader";
 import { UserAvatar } from "@/components/UserAvatar";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { ogImageUrl } from "@/lib/site";
 
 export const Route = createFileRoute("/$username")({
   validateSearch: (search: Record<string, unknown>): { view?: "you" } =>
     search.view === "you" ? { view: "you" } : {},
-  head: () => ({
+  head: ({ params }) => ({
     meta: [
-      { title: "Creator channel | RiseUp" },
+      { title: `@${params.username} | RiseUp` },
       { name: "description", content: "Watch creator videos, shorts, and activity on RiseUp." },
       { property: "og:title", content: "Creator channel | RiseUp" },
       { property: "og:description", content: "Watch creator videos, shorts, and activity on RiseUp." },
       { property: "og:type", content: "profile" },
-      { name: "twitter:card", content: "summary" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { property: "og:image", content: ogImageUrl({ type: "profile", u: params.username }) },
+      { name: "twitter:image", content: ogImageUrl({ type: "profile", u: params.username }) },
     ],
   }),
   component: ProfilePage,

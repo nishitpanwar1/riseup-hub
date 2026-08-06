@@ -13,8 +13,21 @@ import { checkInStreak } from "@/lib/streak.functions";
 import { resolveVideoSrc } from "@/lib/video-url";
 import { parseRenditions, pickRendition, type Rendition } from "@/lib/transcode";
 import { useMyProfile } from "@/hooks/use-profile";
+import { ogImageUrl } from "@/lib/site";
 
 export const Route = createFileRoute("/watch/$id")({
+  head: ({ params }) => ({
+    meta: [
+      { title: "Watch on RiseUp" },
+      { name: "description", content: "Watch this RiseUp video — discipline, fitness, study, mindset and entrepreneurship, without the noise." },
+      { property: "og:title", content: "Watch on RiseUp" },
+      { property: "og:description", content: "Self-improvement first. No infinite scroll. No noise." },
+      { property: "og:type", content: "video.other" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { property: "og:image", content: ogImageUrl({ type: "video", id: params.id }) },
+      { name: "twitter:image", content: ogImageUrl({ type: "video", id: params.id }) },
+    ],
+  }),
   component: WatchPage,
 });
 
