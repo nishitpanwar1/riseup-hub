@@ -29,7 +29,7 @@ export function transcodingSupported() {
   return typeof window !== "undefined" && typeof WebAssembly !== "undefined";
 }
 
-async function getFFmpeg(onLog?: (msg: string) => void) {
+export async function getFFmpeg(onLog?: (msg: string) => void) {
   if (!ffmpegPromise) {
     ffmpegPromise = (async () => {
       const ffmpeg = new FFmpeg();
