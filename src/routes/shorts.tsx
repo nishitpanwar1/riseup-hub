@@ -500,7 +500,7 @@ async function shareShort(title: string, videoId: string) {
 function remix(videoId: string, title: string, username: string | null, signedIn: boolean, nav: ReturnType<typeof useNavigate>) {
   if (!signedIn) return toast.error("Sign in to remix");
   toast.success(username ? `Remixing @${username}` : "Remixing — upload your take");
-  nav({ to: "/studio/upload", search: { remix: videoId, title, source: username ?? undefined } as any });
+  nav({ to: "/studio/upload", search: { remix: videoId, title, source: username ?? undefined, audio: "1" } as any });
 }
 
 function ActionBtn({ icon, count, onClick }: { icon: React.ReactNode; count: number | null; onClick: () => void }) {
