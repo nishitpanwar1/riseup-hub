@@ -787,6 +787,9 @@ export type Database = {
       }
       videos: {
         Row: {
+          audio_source_id: string | null
+          captions: Json
+          captions_status: string
           category: string
           comment_count: number | null
           created_at: string | null
@@ -795,6 +798,7 @@ export type Database = {
           id: string
           is_short: boolean | null
           like_count: number | null
+          remix_of: string | null
           renditions: Json
           save_count: number | null
           share_count: number | null
@@ -807,6 +811,9 @@ export type Database = {
           view_count: number | null
         }
         Insert: {
+          audio_source_id?: string | null
+          captions?: Json
+          captions_status?: string
           category: string
           comment_count?: number | null
           created_at?: string | null
@@ -815,6 +822,7 @@ export type Database = {
           id?: string
           is_short?: boolean | null
           like_count?: number | null
+          remix_of?: string | null
           renditions?: Json
           save_count?: number | null
           share_count?: number | null
@@ -827,6 +835,9 @@ export type Database = {
           view_count?: number | null
         }
         Update: {
+          audio_source_id?: string | null
+          captions?: Json
+          captions_status?: string
           category?: string
           comment_count?: number | null
           created_at?: string | null
@@ -835,6 +846,7 @@ export type Database = {
           id?: string
           is_short?: boolean | null
           like_count?: number | null
+          remix_of?: string | null
           renditions?: Json
           save_count?: number | null
           share_count?: number | null
@@ -847,6 +859,20 @@ export type Database = {
           view_count?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "videos_audio_source_id_fkey"
+            columns: ["audio_source_id"]
+            isOneToOne: false
+            referencedRelation: "videos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "videos_remix_of_fkey"
+            columns: ["remix_of"]
+            isOneToOne: false
+            referencedRelation: "videos"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "videos_user_id_fkey"
             columns: ["user_id"]
