@@ -56,7 +56,7 @@ export const Route = createFileRoute("/api/public/og")({
           if (type === "profile") {
             const username = url.searchParams.get("u") ?? "";
             const profile = await rest(
-              `profiles?username=eq.${encodeURIComponent(username)}&select=username,display_name,avatar_url,bio,follower_count,total_views,creator_tier&limit=1`,
+              `profiles?username=eq.${encodeURIComponent(username)}&select=id,username,display_name,avatar_url,bio,follower_count,total_views,creator_tier&limit=1`,
             );
             if (profile) {
               const streakRow = await rest(
