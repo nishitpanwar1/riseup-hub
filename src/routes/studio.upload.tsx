@@ -4,7 +4,10 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import toast from "react-hot-toast";
-import { Upload, Film, Zap, Clapperboard, Repeat2, X } from "lucide-react";
+import { Upload, Film, Zap, Clapperboard, Repeat2, X, Music2, Subtitles, Video } from "lucide-react";
+import { RemixRecorder } from "@/components/RemixRecorder";
+import { sampleSoundFromVideo, muxWithSampledAudio, type SampledSound } from "@/lib/remix";
+import { generateCaptions, captionsSupported, type CaptionTrack } from "@/lib/captions";
 import { AppHeader } from "@/components/AppHeader";
 import { BackButton } from "@/components/BackButton";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,7 +17,7 @@ import { planLadder, transcodeToRenditions, transcodingSupported, type Rendition
 // automatic ladder conservative on phones; larger files upload directly.
 const MAX_TRANSCODE_BYTES = 120 * 1024 * 1024;
 
-type Search = { type?: "short" | "long"; remix?: string; title?: string; source?: string };
+type Search = { type?: "short" | "long"; remix?: string; title?: string; source?: string; audio?: string };
 
 export const Route = createFileRoute("/studio/upload")({
   ssr: false,
@@ -23,6 +26,7 @@ export const Route = createFileRoute("/studio/upload")({
     remix: typeof s.remix === "string" ? s.remix : undefined,
     title: typeof s.title === "string" ? s.title : undefined,
     source: typeof s.source === "string" ? s.source : undefined,
+    audio: typeof s.audio === "string" ? s.audio : undefined,
   }),
   beforeLoad: async () => {
     const { data } = await supabase.auth.getUser();
@@ -56,6 +60,15 @@ function UploadPage() {
   const [genThumbs, setGenThumbs] = useState(false);
   const [progress, setProgress] = useState(0);
   const [stage, setStage] = useState("");
+  // --- Remix / audio sampling ---
+  const [sound, setSound] = useState<SampledSound | null>(null);
+  const [soundLoading, setSoundLoading] = useState(false);
+  const [keepOwnAudio, setKeepOwnAudio] = useState(false);
+  const [recorderOpen, setRecorderOpen] = useState(false);
+  // --- AI auto-subtitles ---
+  const [wantCaptions, setWantCaptions] = useState(true);
+  const [wantTranslate, setWantTranslate] = useState(false);
+  const [capTracks, setCapTracks] = useState<CaptionTrack[]>([]);
   // Quality ladder is always applied automatically when the browser supports it.
   const optimize = true;
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<Vals>({
@@ -74,6 +87,34 @@ function UploadPage() {
       tags: "remix",
     });
   }, [search.remix, search.title, search.source, reset]);
+
+  // Sample the original audio track so the creator can build on top of it.
+  useEffect(() => {
+    if (!search.remix || search.audio !== "1" || sound || soundLoading) return;
+    let cancelled = false;
+    setSoundLoading(true);
+    (async () => {
+      const { data } = await supabase
+        .from("videos")
+        .select("id, title, video_url, profiles(username)")
+        .eq("id", search.remix!)
+        .maybeSingle();
+      if (!data || cancelled) return;
+      const prof: any = Array.isArray(data.profiles) ? data.profiles[0] : data.profiles;
+      try {
+        const sampled = await sampleSoundFromVideo({
+          videoId: data.id,
+          title: data.title,
+          creator: prof?.username ?? "riseup",
+          videoUrl: data.video_url,
+        });
+        if (!cancelled) setSound(sampled);
+      } catch (e: any) {
+        toast.error(e?.message ?? "Could not sample that audio");
+      }
+    })().finally(() => { if (!cancelled) setSoundLoading(false); });
+    return () => { cancelled = true; };
+  }, [search.remix, search.audio, sound, soundLoading]);
 
 
   const handleFile = async (f: File | null) => {
@@ -115,8 +156,38 @@ function UploadPage() {
     try {
       setProgress(3);
       setStage("Preparing…");
+
+      // 1) Remix: lay the sampled sound under the clip before anything else.
+      let sourceFile: File = file;
+      if (sound) {
+        setStage("Mixing sampled audio");
+        const mixed = await muxWithSampledAudio(file, sound.blob, {
+          keepOriginalAudio: keepOwnAudio,
+          onProgress: (p) => setProgress(Math.round(3 + p.ratio * 12)),
+        });
+        sourceFile = new File([mixed], `remix-${Date.now()}.mp4`, { type: "video/mp4" });
+      }
+
+      // 2) Free on-device AI subtitles (Whisper via WebGPU/WASM).
+      let captionTracks: CaptionTrack[] = capTracks;
+      if (wantCaptions && !captionTracks.length && captionsSupported()) {
+        try {
+          captionTracks = await generateCaptions(sourceFile, {
+            translateToEnglish: wantTranslate,
+            onProgress: (p) => {
+              setStage(p.detail ?? "Writing subtitles");
+              setProgress(Math.round(16 + p.ratio * 10));
+            },
+          });
+          setCapTracks(captionTracks);
+        } catch (e) {
+          console.warn("captioning skipped", e);
+          setStage("Subtitles unavailable · continuing");
+        }
+      }
       // Thumbnail priority: uploaded image → picked auto-frame → captured frame.
       const picked = candidates[candidateIdx];
+      const file = sourceFile; // downstream steps always use the remixed/original clip
       const thumbPromise: Promise<{ blob: Blob; ext: string; type: string } | null> = thumbFile
         ? Promise.resolve({ blob: thumbFile, ext: (thumbFile.name.split(".").pop() || "jpg").toLowerCase(), type: thumbFile.type || "image/jpeg" })
         : picked
@@ -214,6 +285,10 @@ function UploadPage() {
         is_short: isShort,
         tags,
         renditions: renditions as any,
+        captions: captionTracks as any,
+        captions_status: captionTracks.length ? "ready" : "none",
+        remix_of: search.remix ?? null,
+        audio_source_id: sound?.videoId ?? null,
         status: "active",
       });
       if (insErr) throw insErr;
@@ -260,6 +335,32 @@ function UploadPage() {
           </div>
         )}
 
+
+        {(sound || soundLoading) && (
+          <div className="mb-5 card-rise p-4 border-brand-orange/40">
+            <div className="flex items-center gap-3">
+              <Music2 className="w-5 h-5 text-brand-orange shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-bold uppercase tracking-wide text-brand-orange">Sampled sound</p>
+                <p className="text-sm text-text-secondary truncate">
+                  {soundLoading ? "Lifting the original audio…" : `${sound?.title} · @${sound?.creator}`}
+                </p>
+              </div>
+              {sound && <audio src={sound.url} controls className="h-8 max-w-[45%]" />}
+            </div>
+            {sound && (
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <button type="button" onClick={() => setRecorderOpen(true)} className="btn-primary inline-flex items-center gap-2 text-sm">
+                  <Video className="w-4 h-4" /> Record with this sound
+                </button>
+                <label className="flex items-center gap-2 text-xs text-text-secondary">
+                  <input type="checkbox" checked={keepOwnAudio} onChange={(e) => setKeepOwnAudio(e.target.checked)} />
+                  Keep my own audio underneath
+                </label>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Mode toggle */}
         <div className="grid grid-cols-2 gap-3 mb-5">
@@ -352,6 +453,29 @@ function UploadPage() {
 
 
 
+          <div className="rounded-xl border border-rise bg-bg-surface p-4">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input type="checkbox" checked={wantCaptions} onChange={(e) => setWantCaptions(e.target.checked)} className="mt-1" />
+              <span>
+                <span className="flex items-center gap-2 font-bold text-sm"><Subtitles className="w-4 h-4 text-brand-orange" /> AI auto-subtitles</span>
+                <span className="block text-xs text-text-tertiary mt-0.5">
+                  Runs on your device while publishing — free forever, no transcription bills. 70% of viewers watch on mute.
+                </span>
+              </span>
+            </label>
+            {wantCaptions && (
+              <label className="flex items-center gap-2 text-xs text-text-secondary mt-3 ml-7 cursor-pointer">
+                <input type="checkbox" checked={wantTranslate} onChange={(e) => setWantTranslate(e.target.checked)} />
+                Also add an English translation track
+              </label>
+            )}
+            {capTracks.length > 0 && (
+              <p className="text-xs text-accent-mint mt-2 ml-7">
+                Ready: {capTracks.map((t) => t.label).join(" · ")}
+              </p>
+            )}
+          </div>
+
           {progress > 0 && (
             <div>
               <div className="h-2 rounded-full bg-bg-surface overflow-hidden">
@@ -370,6 +494,19 @@ function UploadPage() {
           </p>
         </form>
       </div>
+
+      {recorderOpen && sound && (
+        <RemixRecorder
+          sound={sound}
+          onClose={() => setRecorderOpen(false)}
+          onCaptured={(clip) => {
+            setRecorderOpen(false);
+            const captured = new File([clip], `remix-take-${Date.now()}.mp4`, { type: clip.type || "video/mp4" });
+            void handleFile(captured);
+            toast.success("Take captured — publish when ready");
+          }}
+        />
+      )}
     </div>
   );
 }
