@@ -13,6 +13,7 @@ import { RiseUpSplash } from "@/components/RiseUpSplash";
 
 import appCss from "../styles.css?url";
 import { supabase } from "@/integrations/supabase/client";
+import { startSessionGuard } from "@/lib/session-guard";
 
 function NotFoundComponent() {
   return (
@@ -100,6 +101,7 @@ function RootShell({ children }: { children: React.ReactNode }) {
 function AuthSync() {
   const qc = useQueryClient();
   useEffect(() => {
+    const stopGuard = startSessionGuard();
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
       if (event === "SIGNED_OUT") {
@@ -110,7 +112,7 @@ function AuthSync() {
       qc.invalidateQueries({ queryKey: ["my-streak"] });
       qc.invalidateQueries({ queryKey: ["my-tokens"] });
     });
-    return () => subscription.unsubscribe();
+    return () => { subscription.unsubscribe(); stopGuard(); };
   }, [qc]);
   return null;
 }
