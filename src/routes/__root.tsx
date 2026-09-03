@@ -13,6 +13,7 @@ import { RiseUpSplash } from "@/components/RiseUpSplash";
 
 import appCss from "../styles.css?url";
 import { supabase } from "@/integrations/supabase/client";
+import { startSessionGuard } from "@/lib/session-guard";
 
 function NotFoundComponent() {
   return (
