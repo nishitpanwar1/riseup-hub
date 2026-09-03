@@ -149,6 +149,50 @@ export type Database = {
           },
         ]
       }
+      focus_tasks: {
+        Row: {
+          category: string | null
+          completed_at: string | null
+          created_at: string
+          id: string
+          minutes_done: number
+          target_minutes: number
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category?: string | null
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          minutes_done?: number
+          target_minutes?: number
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string | null
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          minutes_done?: number
+          target_minutes?: number
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "focus_tasks_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       follows: {
         Row: {
           created_at: string | null
@@ -539,6 +583,41 @@ export type Database = {
             foreignKeyName: "user_goals_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_intent: {
+        Row: {
+          categories: string[]
+          created_at: string
+          id: string
+          intent_date: string
+          minutes_budget: number
+          user_id: string
+        }
+        Insert: {
+          categories?: string[]
+          created_at?: string
+          id?: string
+          intent_date?: string
+          minutes_budget?: number
+          user_id: string
+        }
+        Update: {
+          categories?: string[]
+          created_at?: string
+          id?: string
+          intent_date?: string
+          minutes_budget?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_intent_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
