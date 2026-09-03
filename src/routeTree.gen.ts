@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as UsernameRouteImport } from './routes/$username'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as FeedRouteImport } from './routes/feed'
+import { Route as FocusRouteImport } from './routes/focus'
 import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as SettingsRouteImport } from './routes/settings'
@@ -46,6 +47,11 @@ const AuthRoute = AuthRouteImport.update({
 const FeedRoute = FeedRouteImport.update({
   id: '/feed',
   path: '/feed',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FocusRoute = FocusRouteImport.update({
+  id: '/focus',
+  path: '/focus',
   getParentRoute: () => rootRouteImport,
 } as any)
 const NotificationsRoute = NotificationsRouteImport.update({
@@ -124,6 +130,7 @@ export interface FileRoutesByFullPath {
   '/$username': typeof UsernameRoute
   '/auth': typeof AuthRoute
   '/feed': typeof FeedRoute
+  '/focus': typeof FocusRoute
   '/notifications': typeof NotificationsRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
@@ -144,6 +151,7 @@ export interface FileRoutesByTo {
   '/$username': typeof UsernameRoute
   '/auth': typeof AuthRoute
   '/feed': typeof FeedRoute
+  '/focus': typeof FocusRoute
   '/notifications': typeof NotificationsRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
@@ -165,6 +173,7 @@ export interface FileRoutesById {
   '/$username': typeof UsernameRoute
   '/auth': typeof AuthRoute
   '/feed': typeof FeedRoute
+  '/focus': typeof FocusRoute
   '/notifications': typeof NotificationsRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
@@ -187,6 +196,7 @@ export interface FileRouteTypes {
     | '/$username'
     | '/auth'
     | '/feed'
+    | '/focus'
     | '/notifications'
     | '/search'
     | '/settings'
@@ -207,6 +217,7 @@ export interface FileRouteTypes {
     | '/$username'
     | '/auth'
     | '/feed'
+    | '/focus'
     | '/notifications'
     | '/search'
     | '/settings'
@@ -227,6 +238,7 @@ export interface FileRouteTypes {
     | '/$username'
     | '/auth'
     | '/feed'
+    | '/focus'
     | '/notifications'
     | '/search'
     | '/settings'
@@ -248,6 +260,7 @@ export interface RootRouteChildren {
   UsernameRoute: typeof UsernameRoute
   AuthRoute: typeof AuthRoute
   FeedRoute: typeof FeedRoute
+  FocusRoute: typeof FocusRoute
   NotificationsRoute: typeof NotificationsRoute
   SearchRoute: typeof SearchRoute
   SettingsRoute: typeof SettingsRoute
@@ -290,6 +303,13 @@ declare module '@tanstack/react-router' {
       path: '/feed'
       fullPath: '/feed'
       preLoaderRoute: typeof FeedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/focus': {
+      id: '/focus'
+      path: '/focus'
+      fullPath: '/focus'
+      preLoaderRoute: typeof FocusRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/notifications': {
@@ -411,6 +431,7 @@ const rootRouteChildren: RootRouteChildren = {
   UsernameRoute: UsernameRoute,
   AuthRoute: AuthRoute,
   FeedRoute: FeedRoute,
+  FocusRoute: FocusRoute,
   NotificationsRoute: NotificationsRoute,
   SearchRoute: SearchRoute,
   SettingsRoute: SettingsRoute,
