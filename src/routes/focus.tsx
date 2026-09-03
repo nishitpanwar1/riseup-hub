@@ -39,7 +39,7 @@ type Task = {
 
 function FocusPage() {
   const { user, loading } = useAuth();
-  const { profile } = useMyProfile();
+  const { data: profile } = useMyProfile();
   const qc = useQueryClient();
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("discipline");
