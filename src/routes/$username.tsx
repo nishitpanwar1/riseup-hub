@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { ResponsiveContainer, AreaChart, Area, XAxis, Tooltip, CartesianGrid } from "recharts";
-import { Flame, BadgeCheck, Eye, Users, ChevronRight, History, Bookmark, PlaySquare, Settings, BarChart3 } from "lucide-react";
+import { Flame, BadgeCheck, Eye, Users, ChevronRight, History, Bookmark, PlaySquare, Settings, BarChart3, Timer } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { UserAvatar } from "@/components/UserAvatar";
 import { supabase } from "@/integrations/supabase/client";
@@ -84,12 +84,29 @@ function ProfilePage() {
     },
   });
 
+  const { data: focusRows = [] } = useQuery({
+    queryKey: ["you-focus", user?.id],
+    enabled: isOwner,
+    queryFn: async () => {
+      const since = new Date(Date.now() - 7 * 864e5).toISOString();
+      const { data, error } = await supabase
+        .from("focus_tasks")
+        .select("id, title, category, target_minutes, minutes_done, completed_at, created_at")
+        .eq("user_id", user!.id)
+        .gte("created_at", since)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
   useEffect(() => {
     if (!isOwner || !user?.id) return;
     const channel = supabase
       .channel(`you-live-${user.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "video_views", filter: `user_id=eq.${user.id}` }, () => qc.invalidateQueries({ queryKey: ["you-library", user.id] }))
       .on("postgres_changes", { event: "*", schema: "public", table: "video_saves", filter: `user_id=eq.${user.id}` }, () => qc.invalidateQueries({ queryKey: ["you-library", user.id] }))
+      .on("postgres_changes", { event: "*", schema: "public", table: "focus_tasks", filter: `user_id=eq.${user.id}` }, () => qc.invalidateQueries({ queryKey: ["you-focus", user.id] }))
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${user.id}` }, () => qc.invalidateQueries({ queryKey: ["profile", username] }))
       .subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -100,8 +117,20 @@ function ProfilePage() {
     const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - (6 - i));
     const next = new Date(d); next.setDate(next.getDate() + 1);
     const rows = history.filter((row) => { const at = +new Date(row.created_at); return at >= +d && at < +next; });
-    return { day: d.toLocaleDateString(undefined, { weekday: "short" }), minutes: Math.round(rows.reduce((sum, row) => sum + Number(row.seconds_watched ?? 0), 0) / 60) };
+    const focus = (focusRows as any[]).filter((t) => { const at = +new Date(t.completed_at ?? t.created_at); return at >= +d && at < +next; });
+    return {
+      day: d.toLocaleDateString(undefined, { weekday: "short" }),
+      minutes: Math.round(rows.reduce((sum, row) => sum + Number(row.seconds_watched ?? 0), 0) / 60),
+      focus: Math.round(focus.reduce((sum, t) => sum + Number(t.minutes_done ?? 0), 0)),
+    };
   });
+
+  const focusMinutes = chartData.reduce((s2, d) => s2 + d.focus, 0);
+  const watchMinutes = chartData.reduce((s2, d) => s2 + d.minutes, 0);
+  const ratio = watchMinutes > 0 ? focusMinutes / watchMinutes : focusMinutes > 0 ? Infinity : 0;
+  const completedSessions = (focusRows as any[]).filter((t) => t.completed_at).length;
+  const streakDays = streak?.current_streak ?? 0;
+  const tier = streakDays >= 30 ? { name: "Gold", cls: "text-accent-gold" } : streakDays >= 14 ? { name: "Steel", cls: "text-text-primary" } : streakDays >= 7 ? { name: "Iron", cls: "text-accent-mint" } : { name: "Base", cls: "text-text-tertiary" };
 
   if (!profile) {
     return <div className="min-h-screen bg-bg-primary"><AppHeader /><div className="p-8 text-text-secondary">Profile not found</div></div>;
@@ -134,8 +163,9 @@ function ProfilePage() {
 
         {isOwner && (
           <>
-            <section className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <section className="mt-5 grid grid-cols-2 sm:grid-cols-5 gap-2">
               <QuickLink to="/studio" icon={<BarChart3 />} label="Studio" />
+              <QuickLink to="/focus" icon={<Timer />} label="Focus" />
               <QuickLink to="/feed" search={{ view: "history" }} icon={<History />} label="History" />
               <QuickLink to="/feed" search={{ view: "later" }} icon={<Bookmark />} label="Saved" />
               <QuickLink to="/settings" icon={<Settings />} label="Settings" />
@@ -146,7 +176,16 @@ function ProfilePage() {
         )}
 
         {isOwner && <div className="card-rise p-5 mt-6">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-text-tertiary mb-3">Real watch time · last 7 days</h3>
+          <div className="flex flex-wrap items-end justify-between gap-3 mb-4">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-text-tertiary">Discipline analytics · last 7 days</h3>
+            <span className={`font-stat text-xs font-bold uppercase tracking-wider ${tier.cls}`}>{tier.name} tier · {streakDays}d streak</span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+            <MiniStat label="focus min" value={String(focusMinutes)} accent />
+            <MiniStat label="scroll min" value={String(watchMinutes)} />
+            <MiniStat label="focus : scroll" value={ratio === Infinity ? "∞" : ratio.toFixed(2)} />
+            <MiniStat label="sessions done" value={String(completedSessions)} />
+          </div>
           <div className="h-48">
             <ResponsiveContainer>
               <AreaChart data={chartData}>
@@ -158,8 +197,9 @@ function ProfilePage() {
                 </defs>
                 <CartesianGrid stroke="var(--color-border-rise)" vertical={false} />
                 <XAxis dataKey="day" stroke="var(--color-text-tertiary)" />
-                <Tooltip contentStyle={{ background: "var(--color-bg-card)", border: "1px solid var(--color-border-rise)", borderRadius: 8 }} formatter={(value) => [`${value} min`, "Watch time"]} />
-                <Area type="monotone" dataKey="minutes" stroke="var(--color-brand-orange)" strokeWidth={2} fill="url(#g1)" />
+                <Tooltip contentStyle={{ background: "var(--color-bg-card)", border: "1px solid var(--color-border-rise)", borderRadius: 8 }} formatter={(value, name) => [`${value} min`, name as string]} />
+                <Area type="monotone" dataKey="minutes" stroke="var(--color-text-tertiary)" strokeWidth={2} fill="url(#g1)" name="Scroll" />
+                <Area type="monotone" dataKey="focus" stroke="var(--color-brand-orange)" strokeWidth={2} fill="none" name="Focus" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -187,6 +227,15 @@ function ProfilePage() {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function MiniStat({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+  return (
+    <div className="rounded-xl bg-bg-surface p-3">
+      <div className={`font-stat text-xl font-black ${accent ? "text-brand-orange" : "text-text-primary"}`}>{value}</div>
+      <div className="text-[10px] uppercase tracking-wider text-text-tertiary">{label}</div>
     </div>
   );
 }

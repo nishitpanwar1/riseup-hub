@@ -1,13 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Flame, Home, Compass, Users, Swords, User as UserIcon, History as HistoryIcon, Heart, Clock, Trophy, ShoppingBag, BarChart3, Play, ChevronLeft, ChevronRight } from "lucide-react";
+import { Flame, Home, Compass, Users, Swords, User as UserIcon, History as HistoryIcon, Heart, Clock, Trophy, ShoppingBag, BarChart3, Play, ChevronLeft, ChevronRight, Timer } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { UserAvatar } from "@/components/UserAvatar";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { SiteFooterLinks } from "@/components/SiteFooterLinks";
 import { MobileTabBar } from "@/components/MobileTabBar";
+import { IntentGateway } from "@/components/IntentGateway";
 import { emptySignals, rankFeed } from "@/lib/ranking";
 
 type Search = { q?: string; cat?: string; view?: string };
@@ -55,6 +56,7 @@ function FeedPage() {
   const cat = (search.cat as (typeof CATEGORIES)[number]) ?? "all";
   const view = search.view ?? "home";
   const q = search.q ?? "";
+  const [intentCats, setIntentCats] = useState<string[]>([]);
 
   // realtime invalidations
   useEffect(() => {
@@ -195,6 +197,15 @@ function FeedPage() {
     },
   });
 
+  // today's stated intent outranks passive history
+  const tunedSignals = useMemo(() => {
+    const base = signals ?? emptySignals();
+    if (!intentCats.length) return base;
+    const catScore = new Map(base.catScore);
+    intentCats.forEach((c) => catScore.set(c, (catScore.get(c) ?? 0) + 25));
+    return { ...base, catScore };
+  }, [signals, intentCats]);
+
   const filteredVideos = useMemo(() => {
     let list = videos as any[];
     if ((view === "liked" || view === "history" || view === "later") && filterIds) {
@@ -211,16 +222,16 @@ function FeedPage() {
     }
     // Ranking algorithm (YouTube-style): engagement + freshness + personalization
     if (view === "home" && cat !== "trending") {
-      return rankFeed(list as any[], signals ?? emptySignals(), "long");
+      return rankFeed(list as any[], tunedSignals, "long");
     }
     return list;
-  }, [videos, filterIds, view, q, cat, signals]);
+  }, [videos, filterIds, view, q, cat, tunedSignals]);
 
   // rank shorts too — most-watched creators/categories float to the top
   const rankedShorts = useMemo(() => {
     if (!shorts.length) return [];
-    return rankFeed(shorts as any[], signals ?? emptySignals(), "short");
-  }, [shorts, signals]);
+    return rankFeed(shorts as any[], tunedSignals, "short");
+  }, [shorts, tunedSignals]);
 
   const featured = filteredVideos[0];
   const grid = filteredVideos.slice(1);
@@ -272,6 +283,7 @@ function FeedPage() {
   return (
     <div className="min-h-screen bg-bg-primary text-text-primary">
       <AppHeader />
+      <IntentGateway onSaved={setIntentCats} />
       <div className="max-w-[1600px] mx-auto px-3 sm:px-6 py-4 sm:py-6 pb-safe-nav lg:pb-6 grid lg:grid-cols-[240px_1fr_320px] gap-6">
         {/* LEFT SIDEBAR */}
         <aside className="hidden lg:block lg:sticky lg:top-20 h-fit space-y-4">
@@ -281,6 +293,7 @@ function FeedPage() {
             <SideLink to="/rooms" icon={<Users className="w-5 h-5" />} label="Rooms" />
             <SideLink to="/shop" icon={<ShoppingBag className="w-5 h-5" />} label="Shop" />
             <SideLink to="/studio" icon={<BarChart3 className="w-5 h-5" />} label="Studio" />
+            <SideLink to="/focus" icon={<Timer className="w-5 h-5" />} label="Focus" />
             <SideBtn active={cat === "trending"} onClick={() => setSearch({ cat: "trending", view: "home" })} icon={<Swords className="w-5 h-5" />} label="Arena" />
           </nav>
 
