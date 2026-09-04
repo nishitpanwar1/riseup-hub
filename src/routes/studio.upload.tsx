@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate, redirect, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -71,6 +72,23 @@ function UploadPage() {
   const [capTracks, setCapTracks] = useState<CaptionTrack[]>([]);
   // Quality ladder is always applied automatically when the browser supports it.
   const optimize = true;
+  const qc = useQueryClient();
+  const { data: todayCount = 0 } = useQuery({
+    queryKey: ["uploads-today"],
+    queryFn: async () => {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) return 0;
+      const since = new Date(); since.setUTCHours(0, 0, 0, 0);
+      const { count } = await supabase
+        .from("videos")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", u.user.id)
+        .gte("created_at", since.toISOString());
+      return count ?? 0;
+    },
+  });
+  const remainingToday = Math.max(0, 7 - todayCount);
+
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<Vals>({
     resolver: zodResolver(schema),
     defaultValues: { category: "discipline" },
@@ -149,6 +167,9 @@ function UploadPage() {
     if (!file) return toast.error("Pick a video first");
     const { data: u } = await supabase.auth.getUser();
     if (!u.user) return toast.error("Sign in first");
+    if (remainingToday <= 0) {
+      return toast.error("You've published 7 today — the daily cap resets at midnight UTC.");
+    }
 
     const isShort = mode === "short";
     const userId = u.user.id;
@@ -293,6 +314,7 @@ function UploadPage() {
       if (insErr) throw insErr;
       setProgress(100);
       setStage("Live");
+      qc.invalidateQueries({ queryKey: ["uploads-today"] });
       toast.success(isShort ? "Short is live" : "Video is live");
       nav({ to: isShort ? "/shorts" : "/feed" });
     } catch (e: any) {
