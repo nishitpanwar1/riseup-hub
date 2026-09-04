@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { useEffect } from "react";
 import {
   BarChart3, Bell, ChevronRight, Clock, Heart, History as HistoryIcon,
-  LogOut, Settings, ShoppingBag, Upload, User as UserIcon, Users, X,
+  LogOut, Settings, ShoppingBag, Timer, Upload, User as UserIcon, Users, X,
 } from "lucide-react";
 import { UserAvatar } from "@/components/UserAvatar";
 import { supabase } from "@/integrations/supabase/client";
@@ -104,6 +104,7 @@ export function MobileAccountSheet({ open, onClose, username, displayName, avata
             <Row to="/feed" params={{ view: "history" }} icon={<HistoryIcon className="w-5 h-5" />} label="History" />
             <Row to="/feed" params={{ view: "liked" }} icon={<Heart className="w-5 h-5" />} label="Liked videos" />
             <Row to="/feed" params={{ view: "later" }} icon={<Clock className="w-5 h-5" />} label="Saved" />
+            <Row to="/focus" icon={<Timer className="w-5 h-5" />} label="Focus sessions" sub="Timed blocks · 15 tokens each" />
             <Row to="/rooms" icon={<Users className="w-5 h-5" />} label="Accountability rooms" />
             <Row to="/notifications" icon={<Bell className="w-5 h-5" />} label="Notifications" />
           </div>
