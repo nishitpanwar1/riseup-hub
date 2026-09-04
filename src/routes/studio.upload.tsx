@@ -507,9 +507,15 @@ function UploadPage() {
           )}
 
 
-          <button disabled={isSubmitting || !file} type="submit" className="btn-primary w-full inline-flex items-center justify-center gap-2 disabled:opacity-40">
+          <div className={`text-xs font-bold uppercase tracking-wider text-center ${remainingToday === 0 ? "text-accent-red" : "text-text-tertiary"}`}>
+            {remainingToday === 0
+              ? "Daily cap reached — 7 of 7 published. Resets at midnight UTC."
+              : `${remainingToday} of 7 uploads left today`}
+          </div>
+          <button disabled={isSubmitting || !file || remainingToday === 0} type="submit" className="btn-primary w-full inline-flex items-center justify-center gap-2 disabled:opacity-40">
             <Upload className="w-4 h-4" /> {isSubmitting ? "Uploading…" : `Publish ${mode === "short" ? "short" : "video"}`}
           </button>
+
           <p className="text-xs text-text-tertiary text-center">
             Want to sell digital products instead? <Link to="/studio/shop" className="text-brand-orange font-bold">Open Shop</Link>
           </p>
