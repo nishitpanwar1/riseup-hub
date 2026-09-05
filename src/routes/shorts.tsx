@@ -509,7 +509,93 @@ function ShortItem({
   );
 }
 
+function SponsoredShort({
+  id, muted, volume, isActive, shouldMount, onVisible, registerRef,
+}: { id: string; muted: boolean; volume: number; isActive: boolean; shouldMount: boolean; onVisible: (id: string) => void; registerRef: (id: string, el: HTMLDivElement | null) => void }) {
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    registerRef(id, el);
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting && e.intersectionRatio >= 0.6) onVisible(id);
+        }
+      },
+      { threshold: [0, 0.6, 1] }
+    );
+    io.observe(el);
+    return () => { io.disconnect(); registerRef(id, null); };
+  }, [id, onVisible, registerRef]);
+
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.volume = volume;
+    v.muted = muted;
+  }, [volume, muted, shouldMount]);
+
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    if (isActive) {
+      v.currentTime = 0;
+      v.play().catch(() => { v.muted = true; v.play().catch(() => {}); });
+    } else {
+      v.pause();
+    }
+  }, [isActive, shouldMount]);
+
+  return (
+    <div
+      ref={wrapRef}
+      className="relative w-full h-[100dvh] snap-start snap-always flex items-center justify-center bg-black md:gap-5 md:px-4"
+    >
+      <div className="relative h-full w-full md:w-auto md:h-[95%] md:aspect-[9/16] max-w-full bg-black overflow-hidden md:rounded-2xl md:shadow-[0_0_60px_rgba(123,47,255,0.25)] flex items-center justify-center">
+        {shouldMount && (
+          <video
+            ref={videoRef}
+            src={AD_SRC}
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload={isActive ? "auto" : "metadata"}
+            controls={false}
+            disablePictureInPicture
+            controlsList="nodownload noplaybackrate noremoteplayback"
+            onContextMenu={(e) => e.preventDefault()}
+            className="w-full h-full object-cover pointer-events-none select-none [&::-webkit-media-controls]:hidden"
+          />
+        )}
+
+        <span className="absolute top-4 left-4 z-30 rounded-full bg-black/55 backdrop-blur px-3 py-1 text-[11px] font-stat font-semibold uppercase tracking-wider text-white/90 border border-white/10">
+          Sponsored
+        </span>
+        <span className="absolute top-4 right-4 z-30 rounded-full bg-black/40 backdrop-blur px-3 py-1 text-[11px] uppercase tracking-wider text-white/70">
+          Selected for RiseUp
+        </span>
+
+        <a
+          href={AD_LINK}
+          target="_blank"
+          rel="noopener noreferrer sponsored"
+          className="absolute inset-x-0 bottom-0 p-4 pb-20 md:p-5 md:pb-5 bg-gradient-to-t from-black/85 via-black/40 to-transparent text-white z-30"
+        >
+          <span className="inline-block bg-white text-black font-display font-black uppercase text-sm px-5 py-2.5 rounded-full">
+            Learn more
+          </span>
+        </a>
+      </div>
+    </div>
+  );
+}
+
 async function like(videoId: string, signedIn: boolean) {
+
   if (!signedIn) return toast.error("Sign in to like");
   const { data: u } = await supabase.auth.getUser();
   if (!u.user) return;
