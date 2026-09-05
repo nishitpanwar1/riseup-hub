@@ -34,7 +34,26 @@ type Short = {
 const PAGE = 8;
 const STORAGE_KEY = "riseup:shorts:active";
 
+// Sponsored placement: one native 9:16 video ad after every 4 organic shorts.
+const AD_INTERVAL = 4;
+const AD_SRC = "/api/stream?file=sponsor_campaign_01.mp4";
+const AD_LINK = "https://www.profitableratecpmnetwork.com/gt2n16ee68?key=4b823aef780e61f8c57fee2248f2ebc9";
+
+type FeedNode = { kind: "short"; id: string; short: Short } | { kind: "ad"; id: string };
+
+function buildFeed(rows: Short[]): FeedNode[] {
+  const out: FeedNode[] = [];
+  let organic = 0;
+  for (const s of rows) {
+    out.push({ kind: "short", id: s.id, short: s });
+    organic += 1;
+    if (organic % AD_INTERVAL === 0) out.push({ kind: "ad", id: `ad-${organic / AD_INTERVAL}` });
+  }
+  return out;
+}
+
 const SELECT = "id, title, description, category, video_url, renditions, thumbnail_url, like_count, save_count, view_count, comment_count, user_id, created_at, profiles(username, display_name, avatar_url, creator_tier)";
+
 
 function ShortsPage() {
   const { user } = useAuth();
