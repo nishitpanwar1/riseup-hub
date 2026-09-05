@@ -219,29 +219,56 @@ function UploadPage() {
       const renditions: Rendition[] = [];
       let playbackUrl = "";
 
-      const useWasm = optimize && !!dims && transcodingSupported() && sourceFile.size <= MAX_TRANSCODE_BYTES;
+      // Only run the in-browser encoder when it actually buys something:
+      // a non-MP4 source (needs converting) or a very large MP4 (worth shrinking).
+      // Plain MP4 clips upload straight through — no 30MB encoder download, no stall.
+      const isMp4 = /mp4/i.test(sourceFile.type) || /\.mp4$/i.test(sourceFile.name);
+      const worthEncoding = !isMp4 || sourceFile.size > 60 * 1024 * 1024;
+      const useWasm = optimize && worthEncoding && !!dims && transcodingSupported() && sourceFile.size <= MAX_TRANSCODE_BYTES;
 
       if (useWasm && dims) {
         // ---- Free in-browser encode: 360p / 720p / 1080p H.264 + faststart ----
         const targets = planLadder(dims.width, dims.height);
         setStage(`Loading encoder…`);
         let outputs: Awaited<ReturnType<typeof transcodeToRenditions>> = [];
+        // Nudge the bar while the encoder downloads so it never looks frozen.
+        let creep = 3;
+        const creepTimer = window.setInterval(() => {
+          creep = Math.min(creep + 1, 12);
+          setProgress(creep);
+        }, 1500);
+        // Watchdog: if the encoder makes no progress for 90s, bail to a plain upload.
+        let lastTick = Date.now();
         try {
-          outputs = await transcodeToRenditions(sourceFile, {
+          const encoding = transcodeToRenditions(sourceFile, {
             width: dims.width,
             height: dims.height,
             targets,
             onProgress: (p: TranscodeProgress) => {
+              lastTick = Date.now();
               setStage(`Encoding ${p.label} (${p.step}/${p.totalSteps})`);
-              setProgress(Math.round(4 + p.overall * 51)); // 4% → 55%
+              setProgress(Math.round(13 + p.overall * 42)); // 13% → 55%
             },
           });
+          const stalled = new Promise<never>((_, reject) => {
+            const t = window.setInterval(() => {
+              if (Date.now() - lastTick > 90_000) {
+                window.clearInterval(t);
+                reject(new Error("encoder stalled"));
+              }
+            }, 5000);
+            encoding.finally(() => window.clearInterval(t)).catch(() => {});
+          });
+          outputs = await Promise.race([encoding, stalled]);
         } catch (encodeError) {
           // CDN restrictions, low-memory phones and unsupported WebAssembly
           // must never prevent publishing. Fall back to the original sourceFile.
           console.warn("Automatic quality encoding unavailable; uploading original", encodeError);
           setStage("Encoder unavailable · uploading original");
+        } finally {
+          window.clearInterval(creepTimer);
         }
+
 
         for (let i = 0; i < outputs.length; i++) {
           const out = outputs[i];
@@ -599,16 +626,23 @@ function probeVideo(file: File): Promise<Probe> {
     const v = document.createElement("video");
     v.preload = "metadata";
     const url = URL.createObjectURL(file);
+    // Some codecs never fire metadata events — never let the publish hang here.
+    const timer = window.setTimeout(() => {
+      URL.revokeObjectURL(url);
+      reject(new Error("metadata timeout"));
+    }, 8000);
     v.onloadedmetadata = () => {
+      window.clearTimeout(timer);
       const out = { duration: v.duration || 0, width: v.videoWidth, height: v.videoHeight };
       URL.revokeObjectURL(url);
       if (!out.width || !out.height) reject(new Error("no dims"));
       else resolve(out);
     };
-    v.onerror = () => { URL.revokeObjectURL(url); reject(new Error("video read failed")); };
+    v.onerror = () => { window.clearTimeout(timer); URL.revokeObjectURL(url); reject(new Error("video read failed")); };
     v.src = url;
   });
 }
+
 
 function canRenderVideoFrame(_file: File): Promise<boolean> {
   return Promise.resolve(true);
