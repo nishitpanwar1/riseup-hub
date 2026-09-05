@@ -34,7 +34,26 @@ type Short = {
 const PAGE = 8;
 const STORAGE_KEY = "riseup:shorts:active";
 
+// Sponsored placement: one native 9:16 video ad after every 4 organic shorts.
+const AD_INTERVAL = 4;
+const AD_SRC = "/api/stream?file=sponsor_campaign_01.mp4";
+const AD_LINK = "https://www.profitableratecpmnetwork.com/gt2n16ee68?key=4b823aef780e61f8c57fee2248f2ebc9";
+
+type FeedNode = { kind: "short"; id: string; short: Short } | { kind: "ad"; id: string };
+
+function buildFeed(rows: Short[]): FeedNode[] {
+  const out: FeedNode[] = [];
+  let organic = 0;
+  for (const s of rows) {
+    out.push({ kind: "short", id: s.id, short: s });
+    organic += 1;
+    if (organic % AD_INTERVAL === 0) out.push({ kind: "ad", id: `ad-${organic / AD_INTERVAL}` });
+  }
+  return out;
+}
+
 const SELECT = "id, title, description, category, video_url, renditions, thumbnail_url, like_count, save_count, view_count, comment_count, user_id, created_at, profiles(username, display_name, avatar_url, creator_tier)";
+
 
 function ShortsPage() {
   const { user } = useAuth();
@@ -52,7 +71,9 @@ function ShortsPage() {
   const restoredRef = useRef(false);
   const seenIds = useRef<Set<string>>(new Set());
   const itemIdsKey = useMemo(() => items.map(i => i.id).join(","), [items]);
-  const activeIndex = useMemo(() => items.findIndex(x => x.id === activeId), [items, activeId]);
+  const feedNodes = useMemo(() => buildFeed(items), [items]);
+  const activeIndex = useMemo(() => feedNodes.findIndex(x => x.id === activeId), [feedNodes, activeId]);
+
 
   // initial load
   useEffect(() => {
@@ -281,10 +302,25 @@ function ShortsPage() {
         className="h-full w-full overflow-y-scroll snap-y snap-mandatory"
         style={{ scrollSnapType: "y mandatory", overscrollBehavior: "contain" }}
       >
-        {items.map((s, i) => {
+        {feedNodes.map((node, i) => {
           const anchor = activeIndex === -1 ? 0 : activeIndex;
           // Mount active + neighbors so the next short is already buffered (no swipe lag).
           const mount = Math.abs(i - anchor) <= 1;
+          if (node.kind === "ad") {
+            return (
+              <SponsoredShort
+                key={node.id}
+                id={node.id}
+                muted={muted}
+                volume={volume}
+                isActive={activeId === node.id}
+                shouldMount={mount}
+                onVisible={handleVisible}
+                registerRef={registerRef}
+              />
+            );
+          }
+          const s = node.short;
           return (
             <ShortItem
               key={s.id}
@@ -307,6 +343,7 @@ function ShortsPage() {
 
           );
         })}
+
         {loadingMore && (
           <div className="h-20 flex items-center justify-center text-white/60 text-sm">Loading more…</div>
         )}
@@ -472,7 +509,93 @@ function ShortItem({
   );
 }
 
+function SponsoredShort({
+  id, muted, volume, isActive, shouldMount, onVisible, registerRef,
+}: { id: string; muted: boolean; volume: number; isActive: boolean; shouldMount: boolean; onVisible: (id: string) => void; registerRef: (id: string, el: HTMLDivElement | null) => void }) {
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    registerRef(id, el);
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting && e.intersectionRatio >= 0.6) onVisible(id);
+        }
+      },
+      { threshold: [0, 0.6, 1] }
+    );
+    io.observe(el);
+    return () => { io.disconnect(); registerRef(id, null); };
+  }, [id, onVisible, registerRef]);
+
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.volume = volume;
+    v.muted = muted;
+  }, [volume, muted, shouldMount]);
+
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    if (isActive) {
+      v.currentTime = 0;
+      v.play().catch(() => { v.muted = true; v.play().catch(() => {}); });
+    } else {
+      v.pause();
+    }
+  }, [isActive, shouldMount]);
+
+  return (
+    <div
+      ref={wrapRef}
+      className="relative w-full h-[100dvh] snap-start snap-always flex items-center justify-center bg-black md:gap-5 md:px-4"
+    >
+      <div className="relative h-full w-full md:w-auto md:h-[95%] md:aspect-[9/16] max-w-full bg-black overflow-hidden md:rounded-2xl md:shadow-[0_0_60px_rgba(123,47,255,0.25)] flex items-center justify-center">
+        {shouldMount && (
+          <video
+            ref={videoRef}
+            src={AD_SRC}
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload={isActive ? "auto" : "metadata"}
+            controls={false}
+            disablePictureInPicture
+            controlsList="nodownload noplaybackrate noremoteplayback"
+            onContextMenu={(e) => e.preventDefault()}
+            className="w-full h-full object-cover pointer-events-none select-none [&::-webkit-media-controls]:hidden"
+          />
+        )}
+
+        <span className="absolute top-4 left-4 z-30 rounded-full bg-black/55 backdrop-blur px-3 py-1 text-[11px] font-stat font-semibold uppercase tracking-wider text-white/90 border border-white/10">
+          Sponsored
+        </span>
+        <span className="absolute top-4 right-4 z-30 rounded-full bg-black/40 backdrop-blur px-3 py-1 text-[11px] uppercase tracking-wider text-white/70">
+          Selected for RiseUp
+        </span>
+
+        <a
+          href={AD_LINK}
+          target="_blank"
+          rel="noopener noreferrer sponsored"
+          className="absolute inset-x-0 bottom-0 p-4 pb-20 md:p-5 md:pb-5 bg-gradient-to-t from-black/85 via-black/40 to-transparent text-white z-30"
+        >
+          <span className="inline-block bg-white text-black font-display font-black uppercase text-sm px-5 py-2.5 rounded-full">
+            Learn more
+          </span>
+        </a>
+      </div>
+    </div>
+  );
+}
+
 async function like(videoId: string, signedIn: boolean) {
+
   if (!signedIn) return toast.error("Sign in to like");
   const { data: u } = await supabase.auth.getUser();
   if (!u.user) return;
