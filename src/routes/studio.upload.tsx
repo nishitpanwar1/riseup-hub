@@ -626,16 +626,23 @@ function probeVideo(file: File): Promise<Probe> {
     const v = document.createElement("video");
     v.preload = "metadata";
     const url = URL.createObjectURL(file);
+    // Some codecs never fire metadata events — never let the publish hang here.
+    const timer = window.setTimeout(() => {
+      URL.revokeObjectURL(url);
+      reject(new Error("metadata timeout"));
+    }, 8000);
     v.onloadedmetadata = () => {
+      window.clearTimeout(timer);
       const out = { duration: v.duration || 0, width: v.videoWidth, height: v.videoHeight };
       URL.revokeObjectURL(url);
       if (!out.width || !out.height) reject(new Error("no dims"));
       else resolve(out);
     };
-    v.onerror = () => { URL.revokeObjectURL(url); reject(new Error("video read failed")); };
+    v.onerror = () => { window.clearTimeout(timer); URL.revokeObjectURL(url); reject(new Error("video read failed")); };
     v.src = url;
   });
 }
+
 
 function canRenderVideoFrame(_file: File): Promise<boolean> {
   return Promise.resolve(true);
