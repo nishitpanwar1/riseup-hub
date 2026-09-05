@@ -302,10 +302,25 @@ function ShortsPage() {
         className="h-full w-full overflow-y-scroll snap-y snap-mandatory"
         style={{ scrollSnapType: "y mandatory", overscrollBehavior: "contain" }}
       >
-        {items.map((s, i) => {
+        {feedNodes.map((node, i) => {
           const anchor = activeIndex === -1 ? 0 : activeIndex;
           // Mount active + neighbors so the next short is already buffered (no swipe lag).
           const mount = Math.abs(i - anchor) <= 1;
+          if (node.kind === "ad") {
+            return (
+              <SponsoredShort
+                key={node.id}
+                id={node.id}
+                muted={muted}
+                volume={volume}
+                isActive={activeId === node.id}
+                shouldMount={mount}
+                onVisible={handleVisible}
+                registerRef={registerRef}
+              />
+            );
+          }
+          const s = node.short;
           return (
             <ShortItem
               key={s.id}
@@ -328,6 +343,7 @@ function ShortsPage() {
 
           );
         })}
+
         {loadingMore && (
           <div className="h-20 flex items-center justify-center text-white/60 text-sm">Loading more…</div>
         )}
