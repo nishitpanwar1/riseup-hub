@@ -71,7 +71,9 @@ function ShortsPage() {
   const restoredRef = useRef(false);
   const seenIds = useRef<Set<string>>(new Set());
   const itemIdsKey = useMemo(() => items.map(i => i.id).join(","), [items]);
-  const activeIndex = useMemo(() => items.findIndex(x => x.id === activeId), [items, activeId]);
+  const feedNodes = useMemo(() => buildFeed(items), [items]);
+  const activeIndex = useMemo(() => feedNodes.findIndex(x => x.id === activeId), [feedNodes, activeId]);
+
 
   // initial load
   useEffect(() => {
