@@ -556,21 +556,31 @@ function SponsoredShort({
     >
       <div className="relative h-full w-full md:w-auto md:h-[95%] md:aspect-[9/16] max-w-full bg-black overflow-hidden md:rounded-2xl md:shadow-[0_0_60px_rgba(123,47,255,0.25)] flex items-center justify-center">
         {shouldMount && (
-          <video
-            ref={videoRef}
-            src={AD_SRC}
-            autoPlay
-            muted
-            loop
-            playsInline
-            preload={isActive ? "auto" : "metadata"}
-            controls={false}
-            disablePictureInPicture
-            controlsList="nodownload noplaybackrate noremoteplayback"
-            onContextMenu={(e) => e.preventDefault()}
-            className="w-full h-full object-cover pointer-events-none select-none [&::-webkit-media-controls]:hidden"
-          />
+          fallback ? (
+            <video
+              ref={videoRef}
+              src={AD_SRC}
+              autoPlay
+              muted
+              loop
+              playsInline
+              preload={isActive ? "auto" : "metadata"}
+              controls={false}
+              disablePictureInPicture
+              controlsList="nodownload noplaybackrate noremoteplayback"
+              onContextMenu={(e) => e.preventDefault()}
+              className="w-full h-full object-cover pointer-events-none select-none [&::-webkit-media-controls]:hidden"
+            />
+          ) : (
+            <ImaVideoAd
+              isActive={isActive}
+              muted={muted}
+              volume={volume}
+              onFallback={() => setFallback(true)}
+            />
+          )
         )}
+
 
         <span className="absolute top-4 left-4 z-30 rounded-full bg-black/55 backdrop-blur px-3 py-1 text-[11px] font-stat font-semibold uppercase tracking-wider text-white/90 border border-white/10">
           Sponsored
