@@ -8,9 +8,10 @@ const ALLOWED_FILES = new Set(["sponsor_campaign_01.mp4"]);
 function baseUrl() {
   const custom = process.env["AD_MEDIA_BASE_URL"];
   if (custom) return custom.replace(/\/+$/, "");
-  const supabase = process.env["SUPABASE_URL"];
-  return supabase ? `${supabase.replace(/\/+$/, "")}/storage/v1/object/public/ads` : "";
+  const supabase = process.env["SUPABASE_URL"] ?? process.env["VITE_SUPABASE_URL"];
+  return supabase ? `${supabase.replace(/\/+$/, "")}/storage/v1/object/public/videos/ads` : "";
 }
+
 
 export const Route = createFileRoute("/api/stream")({
   server: {
