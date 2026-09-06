@@ -9,6 +9,8 @@ import { parseRenditions, pickRendition } from "@/lib/transcode";
 import { ShortsComments } from "@/components/ShortsComments";
 import { MobileTabBar } from "@/components/MobileTabBar";
 import { useMyProfile } from "@/hooks/use-profile";
+import { ImaVideoAd } from "@/components/ImaVideoAd";
+
 
 export const Route = createFileRoute("/shorts")({
   component: ShortsPage,
@@ -514,6 +516,8 @@ function SponsoredShort({
 }: { id: string; muted: boolean; volume: number; isActive: boolean; shouldMount: boolean; onVisible: (id: string) => void; registerRef: (id: string, el: HTMLDivElement | null) => void }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [fallback, setFallback] = useState(false);
+
 
   useEffect(() => {
     const el = wrapRef.current;
