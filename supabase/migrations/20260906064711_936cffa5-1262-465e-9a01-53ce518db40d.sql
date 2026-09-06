@@ -1,0 +1,1 @@
+CREATE POLICY "Public can read ad creatives" ON storage.objects FOR SELECT TO anon, authenticated USING (bucket_id = 'ads');
