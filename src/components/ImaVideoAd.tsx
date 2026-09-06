@@ -96,7 +96,8 @@ export function ImaVideoAd({ isActive, muted, volume, adTagUrl = GOOGLE_LINEAR_V
             const manager = e.getAdsManager(content, settings);
             managerRef.current = manager;
 
-            manager.addEventListener(ima.AdErrorEvent.Type.AD_ERROR, () => {
+            manager.addEventListener(ima.AdErrorEvent.Type.AD_ERROR, (err: any) => {
+              console.warn("[ima] manager error", err?.getError?.()?.toString?.());
               setFailed(true);
               onFallback?.();
             });
@@ -118,7 +119,7 @@ export function ImaVideoAd({ isActive, muted, volume, adTagUrl = GOOGLE_LINEAR_V
 
         loader.addEventListener(
           ima.AdErrorEvent.Type.AD_ERROR,
-          () => { setFailed(true); onFallback?.(); },
+          (err: any) => { console.warn("[ima] loader error", err?.getError?.()?.toString?.()); setFailed(true); onFallback?.(); },
           false
         );
 
@@ -131,7 +132,8 @@ export function ImaVideoAd({ isActive, muted, volume, adTagUrl = GOOGLE_LINEAR_V
         req.setAdWillAutoPlay(true);
         req.setAdWillPlayMuted(true);
         loader.requestAds(req);
-      } catch {
+      } catch (e) {
+        console.warn("[ima] setup error", e);
         if (!cancelled) { setFailed(true); onFallback?.(); }
       }
     })();
