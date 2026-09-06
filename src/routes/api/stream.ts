@@ -8,9 +8,10 @@ const ALLOWED_FILES = new Set(["sponsor_campaign_01.mp4"]);
 function baseUrl() {
   const custom = process.env["AD_MEDIA_BASE_URL"];
   if (custom) return custom.replace(/\/+$/, "");
-  const supabase = process.env["SUPABASE_URL"];
-  return supabase ? `${supabase.replace(/\/+$/, "")}/storage/v1/object/public/ads` : "";
+  const supabase = process.env["SUPABASE_URL"] ?? process.env["VITE_SUPABASE_URL"];
+  return supabase ? `${supabase.replace(/\/+$/, "")}/storage/v1/object/public/videos/ads` : "";
 }
+
 
 export const Route = createFileRoute("/api/stream")({
   server: {
@@ -30,13 +31,16 @@ export const Route = createFileRoute("/api/stream")({
         });
 
         const headers = new Headers();
-        const copy = ["content-type", "content-length", "content-range", "etag", "last-modified"];
+        const copy = ["content-length", "content-range", "etag", "last-modified"];
         for (const h of copy) {
           const v = upstream.headers.get(h);
           if (v) headers.set(h, v);
         }
+        // Storage returns octet-stream for these objects; browsers need a media type.
+        headers.set("content-type", "video/mp4");
         headers.set("accept-ranges", "bytes");
         headers.set("cache-control", "public, max-age=86400");
+
         headers.set("access-control-allow-origin", "*");
 
         return new Response(upstream.body, { status: upstream.status, headers });
