@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Flame, Home, Compass, Users, Swords, User as UserIcon, History as HistoryIcon, Heart, Clock, Trophy, ShoppingBag, BarChart3, Play, ChevronLeft, ChevronRight, Timer } from "lucide-react";
-import { AppHeader } from "@/components/AppHeader";
+import { AppShell } from "@/components/shell/AppShell";
 import { UserAvatar } from "@/components/UserAvatar";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -280,194 +280,134 @@ function FeedPage() {
 
   const setSearch = (patch: Partial<Search>) => navigate({ search: (prev: any) => ({ ...prev, ...patch }) as any });
 
-  return (
-    <div className="min-h-screen bg-bg-primary text-text-primary">
-      <AppHeader />
-      <IntentGateway onSaved={setIntentCats} />
-      <div className="max-w-[1600px] mx-auto px-3 sm:px-6 py-4 sm:py-6 pb-safe-nav lg:pb-6 grid lg:grid-cols-[240px_1fr_320px] gap-6">
-        {/* LEFT SIDEBAR */}
-        <aside className="hidden lg:block lg:sticky lg:top-20 h-fit space-y-4">
-          <nav className="card-rise p-2">
-            <SideBtn active={view === "home"} onClick={() => setSearch({ view: "home", cat: undefined })} icon={<Home className="w-5 h-5" />} label="Home" />
-            <SideLink to="/shorts" icon={<Compass className="w-5 h-5" />} label="Shorts" />
-            <SideLink to="/rooms" icon={<Users className="w-5 h-5" />} label="Rooms" />
-            <SideLink to="/shop" icon={<ShoppingBag className="w-5 h-5" />} label="Shop" />
-            <SideLink to="/studio" icon={<BarChart3 className="w-5 h-5" />} label="Studio" />
-            <SideLink to="/focus" icon={<Timer className="w-5 h-5" />} label="Focus" />
-            <SideBtn active={cat === "trending"} onClick={() => setSearch({ cat: "trending", view: "home" })} icon={<Swords className="w-5 h-5" />} label="Arena" />
-          </nav>
-
-          <div className="card-rise p-2">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary px-3 pt-2 pb-1">Focus</div>
-            {FOCUS.map(f => (
-              <SideBtn
-                key={f}
-                active={cat === f && view === "home"}
-                onClick={() => setSearch({ cat: f, view: "home" })}
-                icon={<span className="w-5 h-5 inline-flex items-center justify-center text-base">{ICONS[f]}</span>}
-                label={f}
-                dot={cat === f}
-              />
-            ))}
+  const rail = (
+    <>
+      {user && (
+        <div className="card-rise p-5">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Your streak</h3>
           </div>
-
-          <div className="card-rise p-2">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary px-3 pt-2 pb-1">Library</div>
-            <SideLink to="/$username" params={user ? { username: myRank?.username ?? "" } : undefined} icon={<UserIcon className="w-5 h-5" />} label="Profile" disabled={!myRank?.username} />
-            <SideBtn active={view === "history"} onClick={() => setSearch({ view: "history" })} icon={<HistoryIcon className="w-5 h-5" />} label="History" disabled={!user} />
-            <SideBtn active={view === "liked"} onClick={() => setSearch({ view: "liked" })} icon={<Heart className="w-5 h-5" />} label="Liked" disabled={!user} />
-            <SideBtn active={view === "later"} onClick={() => setSearch({ view: "later" })} icon={<Clock className="w-5 h-5" />} label="Saved" disabled={!user} />
-          </div>
-
-          {user && subscribed.length > 0 && (
-            <div className="card-rise p-2">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary px-3 pt-2 pb-1">Subscribed</div>
-              {subscribed.map((s: any) => (
-                <Link
-                  key={s.id}
-                  to="/$username"
-                  params={{ username: s.username }}
-                  className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-semibold text-text-secondary hover:text-text-primary hover:bg-bg-surface/60"
-                >
-                  <UserAvatar src={s.avatar_url} name={s.display_name ?? s.username} className="w-6 h-6" />
-                  <span className="truncate">{s.display_name ?? s.username}</span>
-                </Link>
-              ))}
-            </div>
-          )}
-          <SiteFooterLinks className="px-2 pb-4" />
-        </aside>
-
-
-        {/* CENTER */}
-        <main className="min-w-0">
-          {/* category pills */}
-          <div className="-mx-3 px-3 sm:mx-0 sm:px-0 mb-4 sm:mb-5 flex gap-2 overflow-x-auto scrollbar-none sm:flex-wrap">
-            {CATEGORIES.map(c => (
-              <button
-                key={c}
-                onClick={() => setSearch({ cat: c === "all" ? undefined : c, view: "home" })}
-                className={`shrink-0 px-4 py-2 rounded-full text-sm font-semibold capitalize border transition-colors ${
-                  (cat === c || (c === "all" && cat === "all"))
-                    ? "bg-white text-black border-white"
-                    : "bg-bg-surface border-rise text-text-secondary hover:text-text-primary"
-                }`}
-              >
-                {c}
-              </button>
-            ))}
-          </div>
-
-          {isLoading ? (
-            <div className="text-text-secondary">Loading the arena…</div>
-          ) : (
-            <div className="space-y-5">
-              {/* Shorts shelf always renders when shorts exist — even if there are no long videos yet */}
-              {view === "home" && !q && rankedShorts.length > 0 && <ShortsShelf shorts={rankedShorts} />}
-
-              {filteredVideos.length === 0 ? (
-                rankedShorts.length === 0 || view !== "home" || q ? (
-                  <div className="card-rise p-12 text-center">
-                    <p className="text-text-secondary">{q ? `No matches for "${q}"` : "No videos here yet."}</p>
-                    <Link to="/studio/upload" className="btn-primary inline-block mt-4">Upload one</Link>
-                  </div>
-                ) : (
-                  <div className="card-rise p-8 text-center">
-                    <p className="text-text-secondary">No long-form videos yet — watch the shorts above.</p>
-                    <Link to="/studio/upload" search={{ type: "long" } as any} className="btn-primary inline-block mt-4">Upload a video</Link>
-                  </div>
-                )
-              ) : view === "home" && !q ? (
-                <>
-                  {featured && <FeaturedCard video={featured} />}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
-                    {grid.map((v: any) => <VideoCard key={v.id} video={v} />)}
-                  </div>
-                </>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
-                  {filteredVideos.map((v: any) => <VideoCard key={v.id} video={v} />)}
-                </div>
-              )}
-            </div>
-          )}
-        </main>
-
-        {/* RIGHT SIDEBAR */}
-        <aside className="hidden lg:block space-y-4">
-          {user && (
-            <div className="card-rise p-5">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Your streak</h3>
-              </div>
-              <div className="rounded-xl border border-rise p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <Flame className="w-5 h-5 text-brand-orange" />
-                    <span className="font-bold">{streak?.current_streak ?? 0}-day streak</span>
-                  </div>
-                  <span className="font-stat font-black text-2xl text-brand-orange">{streak?.current_streak ?? 0}</span>
-                </div>
-                <StreakBars current={streak?.current_streak ?? 0} />
-              </div>
-            </div>
-          )}
-
-          <div className="card-rise p-5">
+          <div className="rounded-xl border border-rise p-4">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Top operators</h3>
-              <Trophy className="w-4 h-4 text-accent-gold" />
+              <div className="flex items-center gap-2">
+                <Flame className="w-5 h-5 text-brand-orange" />
+                <span className="font-bold">{streak?.current_streak ?? 0}-day streak</span>
+              </div>
+              <span className="font-stat font-black text-2xl text-brand-orange">{streak?.current_streak ?? 0}</span>
             </div>
-            <ul className="space-y-2">
-              {leaders.map((l: any, i: number) => (
-                <li key={l.id}>
-                  <Link to="/$username" params={{ username: l.username }} className="flex items-center gap-3 p-2 rounded-lg hover:bg-bg-surface">
-                    <span className={`font-stat font-black w-5 text-sm ${i === 0 ? "text-accent-gold" : i === 1 ? "text-text-secondary" : i === 2 ? "text-brand-orange" : "text-text-tertiary"}`}>{i + 1}</span>
-                    <UserAvatar src={l.avatar_url} name={l.display_name ?? l.username} />
-                    <div className="flex-1 min-w-0">
-                      <div className="font-semibold truncate text-sm">{l.display_name ?? l.username}</div>
-                      <div className="text-xs text-text-tertiary font-stat">{l.follower_count ?? 0} followers</div>
-                    </div>
-                    <span className="text-xs font-stat font-bold text-text-secondary">{formatK(l.total_views ?? 0)}</span>
-                  </Link>
-                </li>
-              ))}
-              {myRank && !leaders.some((l: any) => l.username === myRank.username) && (
-                <li className="border-t border-rise pt-2 mt-2">
-                  <div className="flex items-center gap-3 p-2 rounded-lg bg-bg-surface">
-                    <span className="font-stat font-black w-5 text-sm text-text-tertiary">{myRank.rank}</span>
-                    <UserAvatar src={myRank.avatar_url} name={myRank.display_name ?? myRank.username} />
-                    <div className="flex-1 min-w-0">
-                      <div className="font-semibold truncate text-sm">You ({myRank.username})</div>
-                      <div className="text-xs text-text-tertiary font-stat">{myRank.follower_count ?? 0} followers</div>
-                    </div>
-                  </div>
-                </li>
-              )}
-            </ul>
+            <StreakBars current={streak?.current_streak ?? 0} />
           </div>
+        </div>
+      )}
 
-          <div className="card-rise p-5">
-            <h3 className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary mb-3">Trending topics</h3>
-            <ul className="space-y-1">
-              {trendingTopics.length === 0 && <li className="text-text-tertiary text-sm">No topics yet.</li>}
-              {trendingTopics.map(([tag, count]) => (
-                <li key={tag}>
-                  <button
-                    onClick={() => navigate({ search: (prev: any) => ({ ...prev, q: tag }) as any })}
-                    className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-bg-surface text-left"
-                  >
-                    <span className="font-semibold text-sm">#{tag}</span>
-                    <span className="text-xs text-text-tertiary font-stat">{count} videos</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </aside>
+      <div className="card-rise p-5">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Top operators</h3>
+          <Trophy className="w-4 h-4 text-accent-gold" />
+        </div>
+        <ul className="space-y-2">
+          {leaders.map((l: any, i: number) => (
+            <li key={l.id}>
+              <Link to="/$username" params={{ username: l.username }} className="flex items-center gap-3 p-2 rounded-lg hover:bg-bg-surface">
+                <span className={`font-stat font-black w-5 text-sm ${i === 0 ? "text-accent-gold" : i === 1 ? "text-text-secondary" : i === 2 ? "text-brand-orange" : "text-text-tertiary"}`}>{i + 1}</span>
+                <UserAvatar src={l.avatar_url} name={l.display_name ?? l.username} />
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold truncate text-sm">{l.display_name ?? l.username}</div>
+                  <div className="text-xs text-text-tertiary font-stat">{l.follower_count ?? 0} followers</div>
+                </div>
+                <span className="text-xs font-stat font-bold text-text-secondary">{formatK(l.total_views ?? 0)}</span>
+              </Link>
+            </li>
+          ))}
+          {myRank && !leaders.some((l: any) => l.username === myRank.username) && (
+            <li className="border-t border-rise pt-2 mt-2">
+              <div className="flex items-center gap-3 p-2 rounded-lg bg-bg-surface">
+                <span className="font-stat font-black w-5 text-sm text-text-tertiary">{myRank.rank}</span>
+                <UserAvatar src={myRank.avatar_url} name={myRank.display_name ?? myRank.username} />
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold truncate text-sm">You ({myRank.username})</div>
+                  <div className="text-xs text-text-tertiary font-stat">{myRank.follower_count ?? 0} followers</div>
+                </div>
+              </div>
+            </li>
+          )}
+        </ul>
       </div>
-      <MobileTabBar username={myRank?.username ?? null} />
-    </div>
+
+      <div className="card-rise p-5">
+        <h3 className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary mb-3">Trending topics</h3>
+        <ul className="space-y-1">
+          {trendingTopics.length === 0 && <li className="text-text-tertiary text-sm">No topics yet.</li>}
+          {trendingTopics.map(([tag, count]) => (
+            <li key={tag}>
+              <button
+                onClick={() => navigate({ search: (prev: any) => ({ ...prev, q: tag }) as any })}
+                className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-bg-surface text-left"
+              >
+                <span className="font-semibold text-sm">#{tag}</span>
+                <span className="text-xs text-text-tertiary font-stat">{count} videos</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </>
+  );
+
+  return (
+    <AppShell rail={rail}>
+      {user && <IntentGateway onSaved={setIntentCats} />}
+
+      {/* category pills */}
+      <div className="-mx-3 px-3 sm:mx-0 sm:px-0 mb-4 sm:mb-5 flex gap-2 overflow-x-auto scrollbar-none sm:flex-wrap">
+        {CATEGORIES.map(c => (
+          <button
+            key={c}
+            onClick={() => setSearch({ cat: c === "all" ? undefined : c, view: "home" })}
+            className={`shrink-0 px-4 py-2 rounded-full text-sm font-semibold capitalize border transition-colors ${
+              (cat === c || (c === "all" && cat === "all"))
+                ? "bg-white text-black border-white"
+                : "bg-bg-surface border-rise text-text-secondary hover:text-text-primary"
+            }`}
+          >
+            {c}
+          </button>
+        ))}
+      </div>
+
+      {isLoading ? (
+        <div className="text-text-secondary">Loading the arena…</div>
+      ) : (
+        <div className="space-y-5">
+          {view === "home" && !q && rankedShorts.length > 0 && <ShortsShelf shorts={rankedShorts} />}
+
+          {filteredVideos.length === 0 ? (
+            rankedShorts.length === 0 || view !== "home" || q ? (
+              <div className="card-rise p-12 text-center">
+                <p className="text-text-secondary">{q ? `No matches for "${q}"` : "No videos here yet."}</p>
+                <Link to="/studio/upload" className="btn-primary inline-block mt-4">Upload one</Link>
+              </div>
+            ) : (
+              <div className="card-rise p-8 text-center">
+                <p className="text-text-secondary">No long-form videos yet — watch the shorts above.</p>
+                <Link to="/studio/upload" search={{ type: "long" } as any} className="btn-primary inline-block mt-4">Upload a video</Link>
+              </div>
+            )
+          ) : view === "home" && !q ? (
+            <>
+              {featured && <FeaturedCard video={featured} />}
+              <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-4 sm:gap-5">
+                {grid.map((v: any) => <VideoCard key={v.id} video={v} />)}
+              </div>
+            </>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-4 sm:gap-5">
+              {filteredVideos.map((v: any) => <VideoCard key={v.id} video={v} />)}
+            </div>
+          )}
+        </div>
+      )}
+    </AppShell>
   );
 }
 

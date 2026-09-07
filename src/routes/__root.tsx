@@ -10,6 +10,7 @@ import {
 import { useEffect } from "react";
 import { Toaster } from "react-hot-toast";
 import { RiseUpSplash } from "@/components/RiseUpSplash";
+import { AuthGateProvider } from "@/hooks/use-auth-gate";
 
 import appCss from "../styles.css?url";
 import { supabase } from "@/integrations/supabase/client";
@@ -121,9 +122,11 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthSync />
-      <RiseUpSplash />
-      <Outlet />
+      <AuthGateProvider>
+        <AuthSync />
+        <RiseUpSplash />
+        <Outlet />
+      </AuthGateProvider>
       <Toaster
         position="top-center"
         toastOptions={{
