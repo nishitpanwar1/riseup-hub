@@ -3,10 +3,10 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Heart, Bookmark, Share2, ChevronLeft, Eye, Flame, MessageCircle, Send } from "lucide-react";
 import toast from "react-hot-toast";
-import { AppHeader } from "@/components/AppHeader";
+import { AppShell } from "@/components/shell/AppShell";
+import { useAuthGate } from "@/hooks/use-auth-gate";
 import { UserAvatar } from "@/components/UserAvatar";
 import { VideoPlayer } from "@/components/VideoPlayer";
-import { MobileTabBar } from "@/components/MobileTabBar";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { checkInStreak } from "@/lib/streak.functions";
@@ -38,7 +38,7 @@ function WatchPage() {
   const qc = useQueryClient();
   const [comment, setComment] = useState("");
   const [quality, setQuality] = useState<string>("auto");
-  const { data: myProfile } = useMyProfile();
+  const { requireAuth, registerGuestView } = useAuthGate();
 
 
   const { data: video, isLoading } = useQuery({
@@ -122,19 +122,19 @@ function WatchPage() {
   };
 
   const like = async () => {
-    if (!user) return toast.error("Sign in to like");
+    if (!requireAuth(undefined, "Sign in to like videos and support creators.")) return;
     const { error } = await supabase.from("video_likes").insert({ video_id: video.id, user_id: user.id });
     if (error && !error.message.includes("duplicate")) return toast.error(error.message);
     toast.success("Liked");
   };
   const save = async () => {
-    if (!user) return toast.error("Sign in to save");
+    if (!requireAuth(undefined, "Sign in to save videos to your library.")) return;
     const { error } = await supabase.from("video_saves").insert({ video_id: video.id, user_id: user.id });
     if (error && !error.message.includes("duplicate")) return toast.error(error.message);
     toast.success("Saved");
   };
   const postComment = async () => {
-    if (!user) return toast.error("Sign in to comment");
+    if (!requireAuth(undefined, "Sign in to join the conversation.")) return;
     const body = comment.trim();
     if (!body) return;
     // Optimistic prepend
@@ -163,8 +163,7 @@ function WatchPage() {
   };
 
   return (
-    <div className="min-h-screen bg-bg-primary text-text-primary">
-      <AppHeader />
+    <AppShell>
       <div className="max-w-5xl mx-auto px-3 sm:px-6 py-4 sm:py-6 pb-safe-nav lg:pb-6">
         <button onClick={() => nav({ to: "/feed" })} className="text-sm text-text-secondary hover:text-text-primary inline-flex items-center gap-1 mb-3">
           <ChevronLeft className="w-4 h-4" /> Back to feed
@@ -230,16 +229,12 @@ function WatchPage() {
           </div>
         </section>
       </div>
-      <MobileTabBar username={myProfile?.username ?? null} />
-    </div>
+    </AppShell>
   );
 }
 
 function Center({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-bg-primary text-text-primary">
-      <AppHeader />
-      <div className="max-w-5xl mx-auto px-6 py-20 text-center text-text-secondary">{children}</div>
-    </div>
+    <AppShell><div className="mx-auto max-w-5xl px-6 py-20 text-center text-text-secondary">{children}</div></AppShell>
   );
 }

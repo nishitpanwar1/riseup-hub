@@ -2,8 +2,9 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { ResponsiveContainer, AreaChart, Area, XAxis, Tooltip, CartesianGrid } from "recharts";
-import { Flame, BadgeCheck, Eye, Users, ChevronRight, History, Bookmark, PlaySquare, Settings, BarChart3, Timer } from "lucide-react";
-import { AppHeader } from "@/components/AppHeader";
+import { Flame, BadgeCheck, Eye, Users, ChevronRight, History, Bookmark, PlaySquare, Settings, BarChart3, Timer, UserPlus } from "lucide-react";
+import { AppShell } from "@/components/shell/AppShell";
+import { useAuthGate } from "@/hooks/use-auth-gate";
 import { UserAvatar } from "@/components/UserAvatar";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -31,6 +32,7 @@ function ProfilePage() {
   const { username } = Route.useParams();
   const { user } = useAuth();
   const qc = useQueryClient();
+  const { requireAuth } = useAuthGate();
   const [tab, setTab] = useState<"videos" | "saves">("videos");
 
   const { data: profile } = useQuery({
@@ -133,14 +135,13 @@ function ProfilePage() {
   const tier = streakDays >= 30 ? { name: "Gold", cls: "text-accent-gold" } : streakDays >= 14 ? { name: "Steel", cls: "text-text-primary" } : streakDays >= 7 ? { name: "Iron", cls: "text-accent-mint" } : { name: "Base", cls: "text-text-tertiary" };
 
   if (!profile) {
-    return <div className="min-h-screen bg-bg-primary"><AppHeader /><div className="p-8 text-text-secondary">Profile not found</div></div>;
+    return <AppShell><div className="p-8 text-text-secondary">Profile not found</div></AppShell>;
   }
 
   const tierColor = { new: "text-text-tertiary", verified: "text-accent-mint", rising: "text-brand-orange", elite: "text-accent-gold" } as const;
 
   return (
-    <div className="min-h-screen bg-bg-primary text-text-primary">
-      <AppHeader />
+    <AppShell>
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 overflow-hidden">
         <div className="card-rise p-5 sm:p-8 overflow-hidden">
           <div className="flex items-center sm:items-start gap-4 sm:gap-5">
@@ -150,7 +151,10 @@ function ProfilePage() {
                 <span className="truncate">{profile.display_name || profile.username}</span>
                 <BadgeCheck className={`w-6 h-6 ${tierColor[profile.creator_tier as keyof typeof tierColor]}`} />
               </h1>
-              <p className="text-sm text-text-secondary truncate">@{profile.username}</p>
+              <div className="mt-1 flex flex-wrap items-center gap-3">
+                <p className="text-sm text-text-secondary truncate">@{profile.username}</p>
+                {!isOwner && <button onClick={() => requireAuth(undefined, "Sign in to follow and subscribe to creators.")} className="btn-primary px-4 py-2 text-xs inline-flex items-center gap-2"><UserPlus className="w-4 h-4" /> Follow</button>}
+              </div>
               {profile.bio && <p className="mt-2 text-text-primary">{profile.bio}</p>}
               <div className="grid grid-cols-3 gap-2 mt-3 text-xs sm:text-sm font-stat">
                 <Stat icon={<Users className="w-4 h-4" />} label="followers" value={profile.follower_count ?? 0} />
@@ -227,7 +231,7 @@ function ProfilePage() {
           )}
         </div>
       </div>
-    </div>
+    </AppShell>
   );
 }
 

@@ -6,8 +6,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import toast from "react-hot-toast";
 import { Users, Flame, Plus } from "lucide-react";
-import { AppHeader } from "@/components/AppHeader";
-import { MobileTabBar } from "@/components/MobileTabBar";
+import { AppShell } from "@/components/shell/AppShell";
+import { useAuthGate } from "@/hooks/use-auth-gate";
 import { useMyProfile } from "@/hooks/use-profile";
 import { UserAvatar } from "@/components/UserAvatar";
 import { supabase } from "@/integrations/supabase/client";
@@ -26,7 +26,7 @@ const newRoomSchema = z.object({
 function RoomsPage() {
   const { user } = useAuth();
   const qc = useQueryClient();
-  const { data: tabProfile } = useMyProfile();
+  const { requireAuth } = useAuthGate();
   const [open, setOpen] = useState(false);
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(newRoomSchema),
@@ -77,23 +77,17 @@ function RoomsPage() {
     return () => { supabase.removeChannel(ch); };
   }, [qc]);
 
-  const tabBarUsername = tabProfile?.username ?? null;
-
   return (
-    <div className="min-h-screen bg-bg-primary text-text-primary">
-      <AppHeader />
-      <MobileTabBar username={tabBarUsername ?? null} />
+    <AppShell>
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 pb-safe-nav lg:pb-8">
         <div className="flex items-end justify-between mb-6 flex-wrap gap-3">
           <div>
             <h1 className="text-4xl font-black uppercase">Accountability rooms</h1>
             <p className="text-text-secondary mt-1">Public challenges. Daily check-ins. Show up or get cut.</p>
           </div>
-          {user && (
-            <button onClick={() => setOpen(o => !o)} className="btn-primary inline-flex items-center gap-2">
-              <Plus className="w-4 h-4" /> New room
-            </button>
-          )}
+          <button onClick={() => requireAuth(() => setOpen(o => !o), "Sign in to create an accountability room.")} className="btn-primary inline-flex items-center gap-2">
+            <Plus className="w-4 h-4" /> New room
+          </button>
         </div>
 
         {open && (
@@ -132,6 +126,6 @@ function RoomsPage() {
           </div>
         )}
       </div>
-    </div>
+    </AppShell>
   );
 }
