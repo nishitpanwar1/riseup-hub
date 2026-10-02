@@ -47,8 +47,6 @@ export function AuthGateProvider({ children }: { children: React.ReactNode }) {
     [user, loading],
   );
 
-  const value = useMemo(() => ({ requireAuth, signedIn: !!user }), [requireAuth, user]);
-
   const registerGuestView = useCallback((contentId: string) => {
     if (user) return true;
     if (guestViews.includes(contentId)) return true;

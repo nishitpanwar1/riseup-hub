@@ -6,7 +6,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import toast from "react-hot-toast";
 import { Users, Flame, ArrowLeft, CheckCircle2, Circle } from "lucide-react";
-import { AppHeader } from "@/components/AppHeader";
+import { AppShell } from "@/components/shell/AppShell";
+import { useAuthGate } from "@/hooks/use-auth-gate";
 import { UserAvatar } from "@/components/UserAvatar";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -21,6 +22,7 @@ function RoomPage() {
   const { id } = Route.useParams();
   const { user } = useAuth();
   const qc = useQueryClient();
+  const { requireAuth } = useAuthGate();
 
   const { data: room } = useQuery({
     queryKey: ["room", id],
@@ -100,11 +102,10 @@ function RoomPage() {
     return () => { supabase.removeChannel(ch); };
   }, [id, qc]);
 
-  if (!room) return <div className="min-h-screen bg-bg-primary"><AppHeader /><div className="p-8 text-text-secondary">Loading…</div></div>;
+  if (!room) return <AppShell><div className="p-8 text-text-secondary">Loading…</div></AppShell>;
 
   return (
-    <div className="min-h-screen bg-bg-primary text-text-primary">
-      <AppHeader />
+    <AppShell>
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
         <Link to="/rooms" className="text-text-secondary hover:text-text-primary text-sm flex items-center gap-1 mb-4"><ArrowLeft className="w-4 h-4" /> All rooms</Link>
 
@@ -121,8 +122,8 @@ function RoomPage() {
               <span>by @{room.profiles.username}</span>
             </div>
           )}
-          {!membership && user && (
-            <button onClick={() => join.mutate()} className="btn-primary mt-4">Join challenge</button>
+          {!membership && (
+            <button onClick={() => requireAuth(() => join.mutate(), "Sign in to join this accountability room.")} className="btn-primary mt-4">Join challenge</button>
           )}
           {membership && (
             <p className="mt-4 text-sm text-accent-mint font-semibold">✓ You're in — {membership.check_in_count} check-ins logged</p>
@@ -175,6 +176,6 @@ function RoomPage() {
           </aside>
         </div>
       </div>
-    </div>
+    </AppShell>
   );
 }
