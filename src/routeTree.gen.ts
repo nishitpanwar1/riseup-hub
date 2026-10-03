@@ -21,6 +21,7 @@ import { Route as ShopRouteImport } from './routes/shop'
 import { Route as ShortsRouteImport } from './routes/shorts'
 import { Route as StudioRouteImport } from './routes/studio'
 import { Route as ApiStreamRouteImport } from './routes/api/stream'
+import { Route as ApiVastRouteImport } from './routes/api/vast'
 import { Route as ApiVideoRouteImport } from './routes/api/video'
 import { Route as InfoSlugRouteImport } from './routes/info.$slug'
 import { Route as RoomsIndexRouteImport } from './routes/rooms.index'
@@ -90,6 +91,11 @@ const ApiStreamRoute = ApiStreamRouteImport.update({
   path: '/api/stream',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiVastRoute = ApiVastRouteImport.update({
+  id: '/api/vast',
+  path: '/api/vast',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiVideoRoute = ApiVideoRouteImport.update({
   id: '/api/video',
   path: '/api/video',
@@ -144,6 +150,7 @@ export interface FileRoutesByFullPath {
   '/shorts': typeof ShortsRoute
   '/studio': typeof StudioRouteWithChildren
   '/api/stream': typeof ApiStreamRoute
+  '/api/vast': typeof ApiVastRoute
   '/api/video': typeof ApiVideoRoute
   '/info/$slug': typeof InfoSlugRoute
   '/rooms/$id': typeof RoomsIdRoute
@@ -166,6 +173,7 @@ export interface FileRoutesByTo {
   '/shorts': typeof ShortsRoute
   '/studio': typeof StudioRouteWithChildren
   '/api/stream': typeof ApiStreamRoute
+  '/api/vast': typeof ApiVastRoute
   '/api/video': typeof ApiVideoRoute
   '/info/$slug': typeof InfoSlugRoute
   '/rooms/$id': typeof RoomsIdRoute
@@ -189,6 +197,7 @@ export interface FileRoutesById {
   '/shorts': typeof ShortsRoute
   '/studio': typeof StudioRouteWithChildren
   '/api/stream': typeof ApiStreamRoute
+  '/api/vast': typeof ApiVastRoute
   '/api/video': typeof ApiVideoRoute
   '/info/$slug': typeof InfoSlugRoute
   '/rooms/$id': typeof RoomsIdRoute
@@ -213,6 +222,7 @@ export interface FileRouteTypes {
     | '/shorts'
     | '/studio'
     | '/api/stream'
+    | '/api/vast'
     | '/api/video'
     | '/info/$slug'
     | '/rooms/$id'
@@ -235,6 +245,7 @@ export interface FileRouteTypes {
     | '/shorts'
     | '/studio'
     | '/api/stream'
+    | '/api/vast'
     | '/api/video'
     | '/info/$slug'
     | '/rooms/$id'
@@ -257,6 +268,7 @@ export interface FileRouteTypes {
     | '/shorts'
     | '/studio'
     | '/api/stream'
+    | '/api/vast'
     | '/api/video'
     | '/info/$slug'
     | '/rooms/$id'
@@ -280,6 +292,7 @@ export interface RootRouteChildren {
   ShortsRoute: typeof ShortsRoute
   StudioRoute: typeof StudioRouteWithChildren
   ApiStreamRoute: typeof ApiStreamRoute
+  ApiVastRoute: typeof ApiVastRoute
   ApiVideoRoute: typeof ApiVideoRoute
   InfoSlugRoute: typeof InfoSlugRoute
   RoomsIdRoute: typeof RoomsIdRoute
@@ -374,6 +387,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiStreamRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/vast': {
+      id: '/api/vast'
+      path: '/api/vast'
+      fullPath: '/api/vast'
+      preLoaderRoute: typeof ApiVastRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/video': {
       id: '/api/video'
       path: '/api/video'
@@ -459,6 +479,7 @@ const rootRouteChildren: RootRouteChildren = {
   ShortsRoute: ShortsRoute,
   StudioRoute: StudioRouteWithChildren,
   ApiStreamRoute: ApiStreamRoute,
+  ApiVastRoute: ApiVastRoute,
   ApiVideoRoute: ApiVideoRoute,
   InfoSlugRoute: InfoSlugRoute,
   RoomsIdRoute: RoomsIdRoute,
