@@ -32,7 +32,7 @@ export const Route = createFileRoute("/info/$slug")({
   notFoundComponent: InfoNotFound,
   errorComponent: ({ error }) => (
     <div className="min-h-screen bg-bg-primary text-text-primary p-10" role="alert">
-      {error.message}
+      {error instanceof Error ? error.message : "Something went wrong"}
     </div>
   ),
   component: InfoPageView,

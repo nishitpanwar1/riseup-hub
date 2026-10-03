@@ -42,7 +42,7 @@ function ErrorComponent({ error, reset }: { error: unknown; reset: () => void })
     <div className="flex min-h-screen items-center justify-center bg-bg-primary px-4">
       <div className="max-w-md text-center">
         <h1 className="text-xl font-semibold text-text-primary">Something broke</h1>
-        <p className="mt-2 text-sm text-text-secondary">{error.message}</p>
+        <p className="mt-2 text-sm text-text-secondary">{error instanceof Error ? error.message : "Unexpected error"}</p>
         <button
           onClick={() => { router.invalidate(); reset(); }}
           className="btn-primary mt-6"
