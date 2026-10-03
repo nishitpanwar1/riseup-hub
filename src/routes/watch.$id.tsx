@@ -7,6 +7,7 @@ import { AppShell } from "@/components/shell/AppShell";
 import { useAuthGate } from "@/hooks/use-auth-gate";
 import { UserAvatar } from "@/components/UserAvatar";
 import { VideoPlayer } from "@/components/VideoPlayer";
+import { ImaVideoAd } from "@/components/ImaVideoAd";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { checkInStreak } from "@/lib/streak.functions";
@@ -38,7 +39,10 @@ function WatchPage() {
   const qc = useQueryClient();
   const [comment, setComment] = useState("");
   const [quality, setQuality] = useState<string>("auto");
-  const { requireAuth, registerGuestView } = useAuthGate();
+  const [adDone, setAdDone] = useState(false);
+  const [adMuted, setAdMuted] = useState(true);
+  const { requireAuth } = useAuthGate();
+  useEffect(() => { setAdDone(false); }, [id]);
 
 
   const { data: video, isLoading } = useQuery({
@@ -122,19 +126,19 @@ function WatchPage() {
   };
 
   const like = async () => {
-    if (!requireAuth(undefined, "Sign in to like videos and support creators.")) return;
+    if (!requireAuth(undefined, "Sign in to like videos and support creators.") || !user) return;
     const { error } = await supabase.from("video_likes").insert({ video_id: video.id, user_id: user.id });
     if (error && !error.message.includes("duplicate")) return toast.error(error.message);
     toast.success("Liked");
   };
   const save = async () => {
-    if (!requireAuth(undefined, "Sign in to save videos to your library.")) return;
+    if (!requireAuth(undefined, "Sign in to save videos to your library.") || !user) return;
     const { error } = await supabase.from("video_saves").insert({ video_id: video.id, user_id: user.id });
     if (error && !error.message.includes("duplicate")) return toast.error(error.message);
     toast.success("Saved");
   };
   const postComment = async () => {
-    if (!requireAuth(undefined, "Sign in to join the conversation.")) return;
+    if (!requireAuth(undefined, "Sign in to join the conversation.") || !user) return;
     const body = comment.trim();
     if (!body) return;
     // Optimistic prepend
@@ -168,15 +172,37 @@ function WatchPage() {
         <button onClick={() => nav({ to: "/feed" })} className="text-sm text-text-secondary hover:text-text-primary inline-flex items-center gap-1 mb-3">
           <ChevronLeft className="w-4 h-4" /> Back to feed
         </button>
-        <VideoPlayer
-          src={resolveVideoSrc(activeSrc)}
-          poster={video.thumbnail_url}
-          renditions={renditions}
-          quality={quality}
-          onQualityChange={setQuality}
-          onTimeUpdate={onTimeUpdate}
-          autoPlay
-        />
+        {!adDone ? (
+          <div className="relative w-full aspect-video bg-black rounded-xl overflow-hidden">
+            <ImaVideoAd
+              key={`preroll-${id}`}
+              isActive
+              muted={adMuted}
+              volume={1}
+              objectFit="contain"
+              onComplete={() => setAdDone(true)}
+              onFallback={() => setAdDone(true)}
+            />
+            <span className="absolute top-3 left-3 z-30 rounded-full bg-black/60 px-3 py-1 text-[11px] font-stat font-semibold uppercase tracking-wider text-white/90 pointer-events-none">
+              Ad · your video starts after this
+            </span>
+            {adMuted && (
+              <button onClick={() => setAdMuted(false)} className="absolute bottom-3 left-3 z-30 rounded-full bg-black/60 px-3 py-1.5 text-xs text-white">
+                Tap for sound
+              </button>
+            )}
+          </div>
+        ) : (
+          <VideoPlayer
+            src={resolveVideoSrc(activeSrc)}
+            poster={video.thumbnail_url}
+            renditions={renditions}
+            quality={quality}
+            onQualityChange={setQuality}
+            onTimeUpdate={onTimeUpdate}
+            autoPlay
+          />
+        )}
 
 
         <div className="mt-4 flex items-start justify-between gap-4 flex-wrap">

@@ -38,8 +38,6 @@ const STORAGE_KEY = "riseup:shorts:active";
 
 // Sponsored placement: one native 9:16 video ad after every 4 organic shorts.
 const AD_INTERVAL = 4;
-const AD_SRC = "/api/stream?file=sponsor_campaign_01.mp4";
-const AD_LINK = "https://www.profitableratecpmnetwork.com/gt2n16ee68?key=4b823aef780e61f8c57fee2248f2ebc9";
 
 type FeedNode = { kind: "short"; id: string; short: Short } | { kind: "ad"; id: string };
 
