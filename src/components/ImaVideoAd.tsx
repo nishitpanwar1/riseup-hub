@@ -6,11 +6,12 @@ declare global {
 
 const IMA_SDK = "https://imasdk.googleapis.com/js/sdkloader/ima3.js";
 
-/** Google's official linear video (VAST) sample tag — serves a real video ad. */
-export const GOOGLE_LINEAR_VAST_TAG =
-  "https://pubads.g.doubleclick.net/gampad/ads?iu=/21775744923/external/single_ad_samples" +
-  "&sz=640x480&cust_params=sample_ct%3Dlinear&ciu_szs=300x250%2C728x90&gdfp_req=1" +
-  "&output=vast&unviewed_position_start=1&env=vp&impl=s&correlator=";
+/** RichAds pre-roll VAST tag, served through our same-origin proxy so the
+ *  viewer's IP and user agent macros are filled in on the server. */
+export function richAdsTagUrl() {
+  if (typeof window === "undefined") return "/api/vast";
+  return `${window.location.origin}/api/vast?cb=${Date.now()}${Math.floor(Math.random() * 1e6)}`;
+}
 
 let sdkPromise: Promise<void> | null = null;
 function loadImaSdk() {
@@ -34,37 +35,63 @@ type Props = {
   muted: boolean;
   volume: number;
   adTagUrl?: string;
+  /** Called when no ad could be shown (no fill, blocked, error, timeout). */
   onFallback?: () => void;
+  /** Called when the ad finished or was skipped. */
+  onComplete?: () => void;
+  /** Max wait for an ad to start before giving up (ms). */
+  timeoutMs?: number;
+  objectFit?: "cover" | "contain";
 };
 
 /**
- * Full-bleed 9:16 IMA video ad unit.
- * Muted + autoplay + playsInline so mobile browsers never block the stream.
+ * IMA-driven VAST video ad unit. Fills its positioned parent.
+ * Muted + autoplay + playsInline so phones, TVs and desktops never block it.
  */
-export function ImaVideoAd({ isActive, muted, volume, adTagUrl = GOOGLE_LINEAR_VAST_TAG, onFallback }: Props) {
+export function ImaVideoAd({ isActive, muted, volume, adTagUrl, onFallback, onComplete, timeoutMs = 10000, objectFit = "cover" }: Props) {
   const shellRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const managerRef = useRef<any>(null);
   const loaderRef = useRef<any>(null);
-  const displayRef = useRef<any>(null);
-  const initedRef = useRef(false);
   const requestedRef = useRef(false);
+  const doneRef = useRef(false);
+
+  // Keep latest values in refs so changing them never cancels the ad request.
+  const mutedRef = useRef(muted); mutedRef.current = muted;
+  const volumeRef = useRef(volume); volumeRef.current = volume;
+  const fallbackRef = useRef(onFallback); fallbackRef.current = onFallback;
+  const completeRef = useRef(onComplete); completeRef.current = onComplete;
+  const activeRef = useRef(isActive); activeRef.current = isActive;
 
   const [failed, setFailed] = useState(false);
   const [playing, setPlaying] = useState(false);
 
-  // Build the IMA pipeline the first time this slot becomes active.
   useEffect(() => {
     if (!isActive || requestedRef.current) return;
     requestedRef.current = true;
-    let cancelled = false;
+    let started = false;
+    let resizeHandler: (() => void) | null = null;
+
+    const fail = (why: string) => {
+      if (doneRef.current) return;
+      doneRef.current = true;
+      console.warn("[ad] no ad:", why);
+      setFailed(true);
+      fallbackRef.current?.();
+    };
+    const finish = () => {
+      if (doneRef.current) return;
+      doneRef.current = true;
+      setPlaying(false);
+      completeRef.current?.();
+    };
+    const timer = window.setTimeout(() => { if (!started) fail("timeout"); }, timeoutMs);
 
     (async () => {
       try {
         await loadImaSdk();
-        if (cancelled) return;
         const ima = window.google!.ima;
         const shell = shellRef.current;
         const content = contentRef.current;
@@ -73,82 +100,79 @@ export function ImaVideoAd({ isActive, muted, volume, adTagUrl = GOOGLE_LINEAR_V
 
         ima.settings.setLocale("en");
         ima.settings.setDisableCustomPlaybackForIOS10Plus(true);
+        ima.settings.setVpaidMode(ima.ImaSdkSettings.VpaidMode.ENABLED);
+        ima.settings.setNumRedirects(8);
 
         const display = new ima.AdDisplayContainer(adContainer, content);
-        displayRef.current = display;
         display.initialize();
-        initedRef.current = true;
-
         const loader = new ima.AdsLoader(display);
         loaderRef.current = loader;
 
-        const resize = () => {
+        resizeHandler = () => {
           const m = managerRef.current;
-          if (m) m.resize(shell.clientWidth, shell.clientHeight, ima.ViewMode.NORMAL);
+          if (m && shell) m.resize(shell.clientWidth, shell.clientHeight, ima.ViewMode.NORMAL);
         };
 
-        loader.addEventListener(
-          ima.AdsManagerLoadedEvent.Type.ADS_MANAGER_LOADED,
-          (e: any) => {
-            if (cancelled) return;
-            const settings = new ima.AdsRenderingSettings();
-            settings.restoreCustomPlaybackStateOnAdBreakComplete = true;
-            const manager = e.getAdsManager(content, settings);
-            managerRef.current = manager;
+        loader.addEventListener(ima.AdsManagerLoadedEvent.Type.ADS_MANAGER_LOADED, (e: any) => {
+          const settings = new ima.AdsRenderingSettings();
+          settings.restoreCustomPlaybackStateOnAdBreakComplete = true;
+          settings.enablePreloading = true;
+          const manager = e.getAdsManager(content, settings);
+          managerRef.current = manager;
 
-            manager.addEventListener(ima.AdErrorEvent.Type.AD_ERROR, (err: any) => {
-              console.warn("[ima] manager error", err?.getError?.()?.toString?.());
-              setFailed(true);
-              onFallback?.();
-            });
-            manager.addEventListener(ima.AdEvent.Type.STARTED, () => setPlaying(true));
-            manager.addEventListener(ima.AdEvent.Type.ALL_ADS_COMPLETED, () => setPlaying(false));
+          manager.addEventListener(ima.AdErrorEvent.Type.AD_ERROR, (err: any) =>
+            fail(err?.getError?.()?.toString?.() ?? "manager error"));
+          manager.addEventListener(ima.AdEvent.Type.STARTED, () => {
+            started = true;
+            setPlaying(true);
+            if (!activeRef.current) { try { manager.pause(); } catch { /* noop */ } }
+          });
+          manager.addEventListener(ima.AdEvent.Type.SKIPPED, finish);
+          manager.addEventListener(ima.AdEvent.Type.ALL_ADS_COMPLETED, finish);
+          manager.addEventListener(ima.AdEvent.Type.CONTENT_RESUME_REQUESTED, () => { if (started) finish(); });
 
-            try {
-              manager.init(shell.clientWidth, shell.clientHeight, ima.ViewMode.NORMAL);
-              manager.setVolume(muted ? 0 : volume);
-              manager.start();
-              window.addEventListener("resize", resize);
-            } catch {
-              setFailed(true);
-              onFallback?.();
-            }
-          },
-          false
-        );
+          try {
+            manager.init(shell.clientWidth, shell.clientHeight, ima.ViewMode.NORMAL);
+            manager.setVolume(mutedRef.current ? 0 : volumeRef.current);
+            manager.start();
+            window.addEventListener("resize", resizeHandler!);
+          } catch {
+            fail("start failed");
+          }
+        }, false);
 
-        loader.addEventListener(
-          ima.AdErrorEvent.Type.AD_ERROR,
-          (err: any) => { console.warn("[ima] loader error", err?.getError?.()?.toString?.()); setFailed(true); onFallback?.(); },
-          false
-        );
+        loader.addEventListener(ima.AdErrorEvent.Type.AD_ERROR, (err: any) =>
+          fail(err?.getError?.()?.toString?.() ?? "loader error"), false);
 
         const req = new ima.AdsRequest();
-        req.adTagUrl = adTagUrl;
+        req.adTagUrl = adTagUrl ?? richAdsTagUrl();
         req.linearAdSlotWidth = shell.clientWidth;
         req.linearAdSlotHeight = shell.clientHeight;
         req.nonLinearAdSlotWidth = shell.clientWidth;
         req.nonLinearAdSlotHeight = Math.round(shell.clientHeight / 3);
+        req.vastLoadTimeout = 8000;
         req.setAdWillAutoPlay(true);
-        req.setAdWillPlayMuted(true);
+        req.setAdWillPlayMuted(mutedRef.current);
         loader.requestAds(req);
       } catch (e) {
-        console.warn("[ima] setup error", e);
-        if (!cancelled) { setFailed(true); onFallback?.(); }
+        fail(String(e));
       }
     })();
 
-    return () => { cancelled = true; };
-  }, [isActive, adTagUrl, muted, volume, onFallback]);
+    return () => {
+      window.clearTimeout(timer);
+      if (resizeHandler) window.removeEventListener("resize", resizeHandler);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isActive]);
 
-  // Pause/resume with the feed.
+  // Pause/resume with visibility.
   useEffect(() => {
     const m = managerRef.current;
     if (!m) return;
     try { isActive ? m.resume() : m.pause(); } catch { /* not started yet */ }
   }, [isActive]);
 
-  // Follow the feed's mute/volume state.
   useEffect(() => {
     const m = managerRef.current;
     if (!m) return;
@@ -160,9 +184,10 @@ export function ImaVideoAd({ isActive, muted, volume, adTagUrl = GOOGLE_LINEAR_V
     try { loaderRef.current?.destroy(); } catch { /* noop */ }
   }, []);
 
+  const fit = objectFit === "contain" ? "[&_video]:!object-contain" : "[&_video]:!object-cover";
+
   return (
     <div ref={shellRef} className="absolute inset-0 w-full h-full bg-black overflow-hidden">
-      {/* IMA needs a real content element even when only the ad plays. */}
       <video
         ref={contentRef}
         playsInline
@@ -173,11 +198,11 @@ export function ImaVideoAd({ isActive, muted, volume, adTagUrl = GOOGLE_LINEAR_V
       />
       <div
         ref={containerRef}
-        className="absolute inset-0 [&_iframe]:!w-full [&_iframe]:!h-full [&_video]:!w-full [&_video]:!h-full [&_video]:!object-cover"
+        className={`absolute inset-0 [&_iframe]:!w-full [&_iframe]:!h-full [&>div]:!w-full [&>div]:!h-full [&_video]:!w-full [&_video]:!h-full ${fit}`}
       />
       {!playing && (
         <div className="absolute inset-0 flex items-center justify-center text-white/50 text-xs uppercase tracking-widest font-stat pointer-events-none">
-          {failed ? "Sponsored break" : "Loading sponsored break…"}
+          {failed ? "Sponsored break" : "Loading ad…"}
         </div>
       )}
     </div>

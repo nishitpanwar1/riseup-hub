@@ -560,49 +560,23 @@ function SponsoredShort({
     >
       <div className="relative h-full w-full md:w-auto md:h-[95%] md:aspect-[9/16] max-w-full bg-black overflow-hidden md:rounded-2xl md:shadow-[0_0_60px_rgba(123,47,255,0.25)] flex items-center justify-center">
         {shouldMount && (
-          fallback ? (
-            <video
-              ref={videoRef}
-              src={AD_SRC}
-              autoPlay
-              muted
-              loop
-              playsInline
-              preload={isActive ? "auto" : "metadata"}
-              controls={false}
-              disablePictureInPicture
-              controlsList="nodownload noplaybackrate noremoteplayback"
-              onContextMenu={(e) => e.preventDefault()}
-              className="w-full h-full object-cover pointer-events-none select-none [&::-webkit-media-controls]:hidden"
-            />
-          ) : (
-            <ImaVideoAd
-              isActive={isActive}
-              muted={muted}
-              volume={volume}
-              onFallback={() => setFallback(true)}
-            />
-          )
+          <ImaVideoAd
+            isActive={isActive}
+            muted={muted}
+            volume={volume}
+            onFallback={() => setFallback(true)}
+          />
+        )}
+        {fallback && (
+          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 bg-black text-white/60 text-sm">
+            <span>No sponsor right now</span>
+            <span className="text-xs text-white/40">Swipe to keep watching</span>
+          </div>
         )}
 
-
-        <span className="absolute top-4 left-4 z-30 rounded-full bg-black/55 backdrop-blur px-3 py-1 text-[11px] font-stat font-semibold uppercase tracking-wider text-white/90 border border-white/10">
+        <span className="absolute top-4 left-4 z-30 rounded-full bg-black/55 backdrop-blur px-3 py-1 text-[11px] font-stat font-semibold uppercase tracking-wider text-white/90 border border-white/10 pointer-events-none">
           Sponsored
         </span>
-        <span className="absolute top-4 right-4 z-30 rounded-full bg-black/40 backdrop-blur px-3 py-1 text-[11px] uppercase tracking-wider text-white/70">
-          Selected for RiseUp
-        </span>
-
-        <a
-          href={AD_LINK}
-          target="_blank"
-          rel="noopener noreferrer sponsored"
-          className="absolute inset-x-0 bottom-0 p-4 pb-20 md:p-5 md:pb-5 bg-gradient-to-t from-black/85 via-black/40 to-transparent text-white z-30"
-        >
-          <span className="inline-block bg-white text-black font-display font-black uppercase text-sm px-5 py-2.5 rounded-full">
-            Learn more
-          </span>
-        </a>
       </div>
     </div>
   );
