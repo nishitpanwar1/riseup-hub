@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { UserAvatar } from "@/components/UserAvatar";
 import { SiteFooterLinks } from "@/components/SiteFooterLinks";
 import { MobileTabBar } from "@/components/MobileTabBar";
+import { Button } from "@/components/ui/button";
 
 type NavItem = {
   to: string;
@@ -68,7 +69,7 @@ export function AppShell({
 
       <div className="flex">
         {/* Persistent navigation: icon rail on tablet, full rail from lg */}
-        <aside className="hidden md:flex sticky top-14 sm:top-16 h-[calc(100vh-3.5rem)] sm:h-[calc(100vh-4rem)] shrink-0 flex-col overflow-y-auto scrollbar-none border-r border-rise w-[76px] lg:w-60 px-2 py-3">
+        <aside className="hidden md:flex sticky top-14 sm:top-16 h-[calc(100vh-3.5rem)] sm:h-[calc(100vh-4rem)] shrink-0 flex-col overflow-y-auto scrollbar-none border-r border-rise w-[76px] lg:w-56 px-2 py-4 bg-bg-primary">
           <SideNav compactClass="lg:hidden" />
           <div className="hidden lg:block mt-auto pt-4">
             <SiteFooterLinks className="px-2 pb-2" />
@@ -76,12 +77,12 @@ export function AppShell({
         </aside>
 
         <main
-          className={`min-w-0 flex-1 ${bare ? "" : "px-3 sm:px-5 py-4 sm:py-6 pb-safe-nav md:pb-8"} ${className}`}
+          className={`min-w-0 flex-1 ${bare ? "" : "px-3 sm:px-5 lg:px-7 py-4 sm:py-6 pb-safe-nav md:pb-8"} ${className}`}
         >
           {bare ? (
             children
           ) : (
-            <div className="mx-auto w-full max-w-[1400px] 2xl:max-w-[1800px] grid xl:grid-cols-[minmax(0,1fr)_340px] gap-6">
+            <div className="mx-auto w-full max-w-[1640px] 2xl:max-w-[1900px] grid xl:grid-cols-[minmax(0,1fr)_300px] 2xl:grid-cols-[minmax(0,1fr)_320px] gap-7">
               <div className="min-w-0">{children}</div>
               {rail ? <div className="hidden xl:block space-y-4">{rail}</div> : null}
             </div>
@@ -92,16 +93,16 @@ export function AppShell({
       {/* Mobile drawer */}
       {drawer && (
         <div className="md:hidden fixed inset-0 z-50">
-          <button aria-label="Close menu" onClick={() => setDrawer(false)} className="absolute inset-0 bg-black/70" />
+          <Button variant="ghost" aria-label="Close menu" onClick={() => setDrawer(false)} className="absolute inset-0 h-auto w-auto rounded-none bg-background/80 hover:bg-background/80" />
           <div className="relative h-full w-72 max-w-[80vw] bg-bg-card border-r border-rise p-3 overflow-y-auto">
             <div className="flex items-center justify-between px-2 pb-3">
               <span className="flex items-center gap-2">
                 <Flame className="w-5 h-5 text-brand-orange" />
                 <span className="font-display font-black tracking-tight">RISEUP</span>
               </span>
-              <button onClick={() => setDrawer(false)} aria-label="Close" className="p-1 rounded-lg hover:bg-bg-surface">
+              <Button variant="ghost" size="icon" onClick={() => setDrawer(false)} aria-label="Close" className="rounded-full">
                 <X className="w-5 h-5" />
-              </button>
+              </Button>
             </div>
             <SideNav />
             <SiteFooterLinks className="px-2 py-4" />
@@ -153,16 +154,17 @@ function NavRow({ item }: { item: NavItem }) {
   };
 
   return (
-    <button
+    <Button
+      variant="ghost"
       onClick={go}
       title={item.label}
-      className={`w-full flex items-center gap-4 rounded-xl text-sm font-semibold transition-colors
+      className={`h-auto w-full justify-start flex items-center gap-4 rounded-md text-sm font-semibold transition-colors
         px-3 py-2.5 md:max-lg:flex-col md:max-lg:gap-1 md:max-lg:px-1 md:max-lg:py-3
         ${active ? "bg-bg-surface text-text-primary" : "text-text-secondary hover:text-text-primary hover:bg-bg-surface/60"}`}
     >
       <span className="shrink-0">{item.icon}</span>
       <span className="truncate md:max-lg:text-[10px] md:max-lg:font-bold">{item.label}</span>
-    </button>
+    </Button>
   );
 }
 
@@ -191,11 +193,11 @@ function TopBar({ onMenu }: { onMenu: () => void }) {
   const signOut = async () => { await supabase.auth.signOut(); nav({ to: "/feed" }); };
 
   return (
-    <header className="sticky top-0 z-40 backdrop-blur bg-[#0a0a0a]/95 border-b border-rise">
+    <header className="sticky top-0 z-40 backdrop-blur-xl bg-background/95 border-b border-rise">
       <div className="h-14 sm:h-16 px-2 sm:px-4 flex items-center gap-2 sm:gap-4">
-        <button onClick={onMenu} aria-label="Menu" className="p-2 rounded-full hover:bg-bg-surface md:hidden">
+        <Button variant="ghost" size="icon" onClick={onMenu} aria-label="Menu" className="rounded-full md:hidden">
           <Menu className="w-5 h-5" />
-        </button>
+        </Button>
         <Link to="/feed" className="flex items-center gap-2 shrink-0 pr-1">
           <Flame className="w-6 h-6 text-brand-orange" />
           <span className="font-display text-lg sm:text-xl font-black tracking-tight hidden sm:inline">RISEUP</span>
@@ -209,7 +211,7 @@ function TopBar({ onMenu }: { onMenu: () => void }) {
               onChange={(e) => setQ(e.target.value)}
               placeholder="Search RiseUp"
               aria-label="Search"
-              className="w-full pl-10 pr-3 py-2 sm:py-2.5 bg-bg-surface border border-rise rounded-full text-sm text-text-primary placeholder:text-text-tertiary outline-none focus:border-brand-purple"
+              className="w-full pl-10 pr-3 py-2 sm:py-2.5 bg-bg-card border border-rise rounded-full text-sm text-text-primary placeholder:text-text-tertiary outline-none focus:border-brand-orange"
             />
           </label>
         </div>
@@ -217,12 +219,12 @@ function TopBar({ onMenu }: { onMenu: () => void }) {
         <div className="flex items-center gap-1 sm:gap-2 shrink-0">
           {user ? (
             <>
-              <button
+              <Button
                 onClick={() => requireAuth(() => nav({ to: "/studio/upload" }))}
-                className="btn-primary text-sm py-2 px-4 hidden sm:inline-flex items-center gap-2"
+                className="rounded-full text-sm px-4 hidden sm:inline-flex items-center gap-2"
               >
                 <Upload className="w-4 h-4" /> Create
-              </button>
+              </Button>
               <Link to="/notifications" title="Notifications" className="p-2 rounded-full hover:bg-bg-surface hidden sm:inline-flex">
                 <Bell className="w-5 h-5" />
               </Link>
@@ -236,9 +238,9 @@ function TopBar({ onMenu }: { onMenu: () => void }) {
               ) : (
                 <span className="w-9 h-9 rounded-full bg-bg-surface flex items-center justify-center"><UserIcon className="w-5 h-5" /></span>
               )}
-              <button onClick={signOut} title="Sign out" className="p-2 rounded-full hover:bg-bg-surface hidden lg:inline-flex">
+              <Button variant="ghost" size="icon" onClick={signOut} title="Sign out" className="rounded-full hidden lg:inline-flex">
                 <LogOut className="w-5 h-5" />
-              </button>
+              </Button>
             </>
           ) : (
             <Link to="/auth" className="btn-primary text-sm py-2 px-3 sm:px-4 whitespace-nowrap">Sign in</Link>

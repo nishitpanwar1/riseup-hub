@@ -1,15 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Flame, Home, Compass, Users, Swords, User as UserIcon, History as HistoryIcon, Heart, Clock, Trophy, ShoppingBag, BarChart3, Play, ChevronLeft, ChevronRight, Timer } from "lucide-react";
+import { Flame, Trophy, Play, ChevronLeft, ChevronRight, MoreVertical, ListPlus } from "lucide-react";
 import { AppShell } from "@/components/shell/AppShell";
 import { UserAvatar } from "@/components/UserAvatar";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
-import { SiteFooterLinks } from "@/components/SiteFooterLinks";
-import { MobileTabBar } from "@/components/MobileTabBar";
 import { IntentGateway } from "@/components/IntentGateway";
 import { emptySignals, rankFeed } from "@/lib/ranking";
+import { Button } from "@/components/ui/button";
 
 type Search = { q?: string; cat?: string; view?: string };
 
@@ -18,6 +17,16 @@ export const Route = createFileRoute("/feed")({
     q: typeof s.q === "string" ? s.q : undefined,
     cat: typeof s.cat === "string" ? s.cat : undefined,
     view: typeof s.view === "string" ? s.view : undefined,
+  }),
+  head: () => ({
+    meta: [
+      { title: "Home — RiseUp" },
+      { name: "description", content: "Your personalized RiseUp feed for discipline, fitness, study, mindset, finance and creator videos." },
+      { property: "og:title", content: "Home — RiseUp" },
+      { property: "og:description", content: "Watch your personalized creator feed and daily Shorts on RiseUp." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+    ],
   }),
   component: FeedPage,
 });
@@ -233,9 +242,6 @@ function FeedPage() {
     return rankFeed(shorts as any[], tunedSignals, "short");
   }, [shorts, tunedSignals]);
 
-  const featured = filteredVideos[0];
-  const grid = filteredVideos.slice(1);
-
   // streak
   const { data: streak } = useQuery({
     queryKey: ["my-streak", user?.id],
@@ -283,11 +289,11 @@ function FeedPage() {
   const rail = (
     <>
       {user && (
-        <div className="card-rise p-5">
+        <div className="border-b border-rise pb-6">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Your streak</h3>
           </div>
-          <div className="rounded-xl border border-rise p-4">
+          <div className="rounded-md border border-rise bg-bg-card p-4">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <Flame className="w-5 h-5 text-brand-orange" />
@@ -300,7 +306,7 @@ function FeedPage() {
         </div>
       )}
 
-      <div className="card-rise p-5">
+      <div className="border-b border-rise pb-6">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Top operators</h3>
           <Trophy className="w-4 h-4 text-accent-gold" />
@@ -334,19 +340,20 @@ function FeedPage() {
         </ul>
       </div>
 
-      <div className="card-rise p-5">
+      <div className="pb-4">
         <h3 className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary mb-3">Trending topics</h3>
         <ul className="space-y-1">
           {trendingTopics.length === 0 && <li className="text-text-tertiary text-sm">No topics yet.</li>}
           {trendingTopics.map(([tag, count]) => (
             <li key={tag}>
-              <button
+              <Button
+                variant="ghost"
                 onClick={() => navigate({ search: (prev: any) => ({ ...prev, q: tag }) as any })}
-                className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-bg-surface text-left"
+                className="h-auto w-full justify-between p-2 rounded-md text-left"
               >
                 <span className="font-semibold text-sm">#{tag}</span>
                 <span className="text-xs text-text-tertiary font-stat">{count} videos</span>
-              </button>
+              </Button>
             </li>
           ))}
         </ul>
@@ -359,51 +366,57 @@ function FeedPage() {
       {user && <IntentGateway onSaved={setIntentCats} />}
 
       {/* category pills */}
-      <div className="-mx-3 px-3 sm:mx-0 sm:px-0 mb-4 sm:mb-5 flex gap-2 overflow-x-auto scrollbar-none sm:flex-wrap">
+      <div className="sticky top-14 sm:top-16 z-20 -mx-3 px-3 sm:-mx-5 sm:px-5 lg:-mx-7 lg:px-7 py-3 mb-5 flex gap-2 overflow-x-auto scrollbar-none bg-background/95 backdrop-blur-xl border-b border-rise">
         {CATEGORIES.map(c => (
-          <button
+          <Button
+            variant={(cat === c || (c === "all" && cat === "all")) ? "default" : "secondary"}
+            size="sm"
             key={c}
             onClick={() => setSearch({ cat: c === "all" ? undefined : c, view: "home" })}
-            className={`shrink-0 px-4 py-2 rounded-full text-sm font-semibold capitalize border transition-colors ${
+            className={`shrink-0 rounded-md px-4 capitalize border transition-colors ${
               (cat === c || (c === "all" && cat === "all"))
-                ? "bg-white text-black border-white"
+                ? "border-primary"
                 : "bg-bg-surface border-rise text-text-secondary hover:text-text-primary"
             }`}
           >
             {c}
-          </button>
+          </Button>
         ))}
       </div>
 
       {isLoading ? (
         <div className="text-text-secondary">Loading the arena…</div>
       ) : (
-        <div className="space-y-5">
+        <div className="space-y-10">
           {view === "home" && !q && rankedShorts.length > 0 && <ShortsShelf shorts={rankedShorts} />}
 
           {filteredVideos.length === 0 ? (
             rankedShorts.length === 0 || view !== "home" || q ? (
-              <div className="card-rise p-12 text-center">
+              <div className="border border-rise bg-bg-card p-12 text-center rounded-md">
                 <p className="text-text-secondary">{q ? `No matches for "${q}"` : "No videos here yet."}</p>
                 <Link to="/studio/upload" className="btn-primary inline-block mt-4">Upload one</Link>
               </div>
             ) : (
-              <div className="card-rise p-8 text-center">
+              <div className="border border-rise bg-bg-card p-8 text-center rounded-md">
                 <p className="text-text-secondary">No long-form videos yet — watch the shorts above.</p>
                 <Link to="/studio/upload" search={{ type: "long" } as any} className="btn-primary inline-block mt-4">Upload a video</Link>
               </div>
             )
-          ) : view === "home" && !q ? (
-            <>
-              {featured && <FeaturedCard video={featured} />}
-              <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-4 sm:gap-5">
-                {grid.map((v: any) => <VideoCard key={v.id} video={v} />)}
-              </div>
-            </>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-4 sm:gap-5">
-              {filteredVideos.map((v: any) => <VideoCard key={v.id} video={v} />)}
-            </div>
+            <section>
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4 mb-5">
+                <div className="min-w-0">
+                  <p className="text-[11px] uppercase font-bold text-brand-orange">Built around your momentum</p>
+                  <h1 className="mt-1 text-2xl font-extrabold truncate">{view === "home" && !q ? "Your mix" : q ? `Results for “${q}”` : view}</h1>
+                </div>
+                <Button variant="ghost" size="sm" className="shrink-0 text-text-secondary" onClick={() => setSearch({ view: "later" })}>
+                  <ListPlus /> Watch later
+                </Button>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-x-5 gap-y-8">
+                {filteredVideos.map((v: any) => <VideoCard key={v.id} video={v} />)}
+              </div>
+            </section>
           )}
         </div>
       )}
@@ -451,52 +464,15 @@ function SideLink({ to, params, icon, label, disabled }: { to: string; params?: 
   );
 }
 
-function FeaturedCard({ video }: { video: any }) {
-  const isFresh = Date.now() - new Date(video.created_at).getTime() < 1000 * 60 * 60 * 6;
-  const profile = Array.isArray(video.profiles) ? video.profiles[0] : video.profiles;
-  return (
-    <Link
-      to="/watch/$id"
-      params={{ id: video.id }}
-      className="block group -mx-3 sm:mx-0 sm:card-rise sm:overflow-hidden"
-    >
-      <div className={`relative aspect-video sm:rounded-none bg-gradient-to-br ${CAT_BG[video.category] ?? "from-bg-card to-bg-surface"}`}>
-        {video.thumbnail_url && <img src={video.thumbnail_url} alt={video.title} className="w-full h-full object-cover" loading="lazy" />}
-        {isFresh && (
-          <span className="absolute top-3 left-3 text-[10px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-md bg-bg-surface/90 text-text-primary border border-rise">
-            New
-          </span>
-        )}
-        <span className="absolute bottom-2 right-2 text-[11px] px-1.5 py-0.5 rounded bg-black/80 font-stat">
-          {fmtDuration(video.duration)}
-        </span>
-      </div>
-      <div className="px-3 py-3 sm:p-4 flex gap-3">
-        <UserAvatar src={profile?.avatar_url} name={profile?.display_name ?? profile?.username} className="w-9 h-9 sm:hidden" />
-        <div className="min-w-0 flex-1">
-          <h2 className="font-bold text-sm leading-snug line-clamp-2 sm:font-display sm:font-black sm:text-xl sm:uppercase">{video.title}</h2>
-          <div className="mt-1 text-xs text-text-tertiary font-stat truncate">
-            {profile && <span>@{profile.username} · </span>}
-            {formatK(video.view_count)} views · {timeAgo(video.created_at)}
-          </div>
-        </div>
-      </div>
-    </Link>
-  );
-}
-
 function VideoCard({ video }: { video: any }) {
   const profile = Array.isArray(video.profiles) ? video.profiles[0] : video.profiles;
   const badge = CAT_BADGE[video.category] ?? "bg-bg-surface text-text-secondary";
   return (
-    <Link
-      to="/watch/$id"
-      params={{ id: video.id }}
-      className="block group -mx-3 sm:mx-0 sm:card-rise sm:overflow-hidden"
-    >
-      <div className={`relative aspect-video bg-gradient-to-br ${CAT_BG[video.category] ?? "from-bg-card to-bg-surface"}`}>
+    <article className="group min-w-0">
+      <Link to="/watch/$id" params={{ id: video.id }} className="block relative aspect-video overflow-hidden rounded-md bg-bg-card">
+      <div className={`absolute inset-0 bg-gradient-to-br ${CAT_BG[video.category] ?? "from-bg-card to-bg-surface"}`}>
         {video.thumbnail_url ? (
-          <img src={video.thumbnail_url} alt={video.title} className="w-full h-full object-cover opacity-90 group-hover:opacity-100" loading="lazy" />
+          <img src={video.thumbnail_url} alt={video.title} className="w-full h-full object-cover opacity-90 transition duration-300 group-hover:scale-[1.02] group-hover:opacity-100" loading="lazy" />
         ) : (
           <video src={video.video_url} muted playsInline preload="none"
             onMouseEnter={(e) => e.currentTarget.play().catch(()=>{})}
@@ -505,17 +481,17 @@ function VideoCard({ video }: { video: any }) {
         )}
         <span className={`hidden sm:inline absolute top-2 left-2 text-[10px] px-2 py-0.5 rounded uppercase font-bold tracking-wider ${badge}`}>{video.category}</span>
         <span className="absolute bottom-2 right-2 text-[11px] px-1.5 py-0.5 rounded bg-black/80 font-stat">{fmtDuration(video.duration)}</span>
-      </div>
-      <div className="px-3 py-3 sm:p-3 flex gap-3">
+      </div></Link>
+      <div className="pt-3 flex gap-3">
         <UserAvatar src={profile?.avatar_url} name={profile?.display_name ?? profile?.username} />
         <div className="min-w-0 flex-1">
-          <h3 className="font-bold leading-snug line-clamp-2 text-sm">{video.title}</h3>
+          <Link to="/watch/$id" params={{ id: video.id }} className="font-display font-bold leading-snug line-clamp-2 text-[15px] group-hover:text-brand-orange">{video.title}</Link>
           <div className="text-xs text-text-tertiary font-stat mt-1 truncate">
             {profile ? `${profile.display_name ?? profile.username} · ` : ""}{formatK(video.view_count)} views · {timeAgo(video.created_at)}
           </div>
-        </div>
+        </div><Button variant="ghost" size="icon" className="-mt-2 shrink-0 rounded-full text-text-tertiary" aria-label="More options"><MoreVertical /></Button>
       </div>
-    </Link>
+    </article>
   );
 }
 
@@ -584,25 +560,25 @@ function ShortsShelf({ shorts }: { shorts: any[] }) {
     el.scrollBy({ left: dir * el.clientWidth * 0.9, behavior: "smooth" });
   };
   return (
-    <section className="-mx-3 px-3 py-4 border-y border-rise sm:mx-0 sm:card-rise sm:border sm:p-4">
-      <div className="flex items-center justify-between mb-3">
+    <section className="border-y border-rise py-5">
+      <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <span className="w-7 h-7 rounded-lg bg-gradient-to-br from-red-500 to-pink-600 flex items-center justify-center">
-            <Play className="w-4 h-4 fill-white text-white" />
+          <span className="w-7 h-7 rounded-md bg-brand-orange flex items-center justify-center">
+            <Play className="w-4 h-4 fill-current text-primary-foreground" />
           </span>
-          <h2 className="font-display font-black text-lg uppercase tracking-tight">Shorts</h2>
+          <div><h2 className="font-display font-extrabold text-xl">Daily Sparks</h2><p className="text-xs text-text-tertiary">Fast ideas from your creator mix</p></div>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => scroll(-1)} className="hidden sm:flex w-8 h-8 rounded-full bg-bg-surface border border-rise items-center justify-center hover:bg-bg-card" aria-label="Scroll left">
+          <Button variant="secondary" size="icon" onClick={() => scroll(-1)} className="hidden sm:inline-flex rounded-full" aria-label="Scroll left">
             <ChevronLeft className="w-4 h-4" />
-          </button>
-          <button onClick={() => scroll(1)} className="hidden sm:flex w-8 h-8 rounded-full bg-bg-surface border border-rise items-center justify-center hover:bg-bg-card" aria-label="Scroll right">
+          </Button>
+          <Button variant="secondary" size="icon" onClick={() => scroll(1)} className="hidden sm:inline-flex rounded-full" aria-label="Scroll right">
             <ChevronRight className="w-4 h-4" />
-          </button>
+          </Button>
           <Link to="/shorts" className="text-xs font-bold uppercase tracking-wider text-text-secondary hover:text-text-primary ml-1">See all</Link>
         </div>
       </div>
-      <div ref={railRef} className="flex gap-2 sm:gap-3 overflow-x-auto scrollbar-none snap-x" style={{ scrollbarWidth: "none" }}>
+      <div ref={railRef} className="flex gap-3 overflow-x-auto scrollbar-none snap-x">
 
         {shorts.map((s: any) => {
           const p = Array.isArray(s.profiles) ? s.profiles[0] : s.profiles;
@@ -610,7 +586,7 @@ function ShortsShelf({ shorts }: { shorts: any[] }) {
             <Link
               key={s.id}
               to="/shorts"
-              className="relative shrink-0 snap-start w-[160px] sm:w-[180px] aspect-[9/16] rounded-xl overflow-hidden bg-bg-surface border border-rise group"
+              className="relative shrink-0 snap-start w-[142px] sm:w-[160px] lg:w-[172px] aspect-[9/16] rounded-md overflow-hidden bg-bg-surface border border-rise group"
             >
               {s.thumbnail_url ? (
                 <img src={s.thumbnail_url} alt={s.title} className="w-full h-full object-cover" loading="lazy" />

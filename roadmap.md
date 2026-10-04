@@ -1,4 +1,5 @@
 # Roadmap
+- [x] Redesign the main feed as the responsive Control Wall creator experience
 - [ ] Migrate remaining pages to the shared adaptive layout
 - [ ] Gate signed-out interactive actions
 - [ ] Add shared guest viewing allowance prompt
