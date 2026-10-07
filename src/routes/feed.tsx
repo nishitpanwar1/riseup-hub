@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Flame, Trophy, Play, ChevronLeft, ChevronRight, MoreVertical, ListPlus } from "lucide-react";
+import { Play, ChevronLeft, ChevronRight, MoreVertical, Clock, User, Search } from "lucide-react";
 import { AppShell } from "@/components/shell/AppShell";
 import { UserAvatar } from "@/components/UserAvatar";
 import { supabase } from "@/integrations/supabase/client";
@@ -32,31 +32,6 @@ export const Route = createFileRoute("/feed")({
 });
 
 const CATEGORIES = ["all", "trending", "fitness", "discipline", "study", "mindset", "finance", "morning", "entrepreneur", "sports"] as const;
-const FOCUS = ["discipline", "fitness", "study", "entrepreneur", "mindset", "finance", "morning"] as const;
-
-const CAT_BG: Record<string, string> = {
-  fitness: "from-emerald-900/60 to-emerald-700/30",
-  discipline: "from-purple-900/60 to-purple-700/30",
-  study: "from-indigo-900/60 to-indigo-700/30",
-  mindset: "from-slate-800/70 to-slate-600/30",
-  finance: "from-amber-900/60 to-amber-700/30",
-  morning: "from-orange-900/60 to-orange-700/30",
-  entrepreneur: "from-pink-900/60 to-pink-700/30",
-  sports: "from-red-900/60 to-red-700/30",
-  trending: "from-red-900/70 to-orange-700/30",
-};
-const CAT_BADGE: Record<string, string> = {
-  fitness: "bg-emerald-800/70 text-emerald-200",
-  discipline: "bg-purple-800/70 text-purple-200",
-  study: "bg-indigo-800/70 text-indigo-200",
-  mindset: "bg-slate-700/70 text-slate-200",
-  finance: "bg-amber-800/70 text-amber-200",
-  morning: "bg-orange-800/70 text-orange-200",
-  entrepreneur: "bg-pink-800/70 text-pink-200",
-  sports: "bg-red-800/70 text-red-200",
-  trending: "bg-red-800/70 text-red-200",
-};
-
 function FeedPage() {
   const { user } = useAuth();
   const qc = useQueryClient();
@@ -97,7 +72,7 @@ function FeedPage() {
   }, [qc]);
 
   // base videos query — long-form only; shorts live on /shorts
-  const { data: videos = [], isLoading } = useQuery({
+  const { data: videos = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["feed", cat],
     queryFn: async () => {
       let qb = supabase
@@ -111,19 +86,6 @@ function FeedPage() {
       else if (cat !== "all") qb = qb.eq("category", cat);
       const { data, error } = await qb;
       if (error) throw error;
-      return data ?? [];
-    },
-  });
-
-  // subscribed channels for the sidebar
-  const { data: subscribed = [] } = useQuery({
-    queryKey: ["subscribed", user?.id],
-    enabled: !!user,
-    queryFn: async () => {
-      const { data: follows } = await supabase.from("follows").select("following_id").eq("follower_id", user!.id).limit(20);
-      const ids = (follows ?? []).map((f: any) => f.following_id);
-      if (ids.length === 0) return [];
-      const { data } = await supabase.from("profiles").select("id, username, display_name, avatar_url").in("id", ids);
       return data ?? [];
     },
   });
@@ -151,10 +113,10 @@ function FeedPage() {
     enabled: !!user,
     queryFn: async () => {
       const [{ data: likes }, { data: views }, { data: saves }, { data: follows }] = await Promise.all([
-        supabase.from("video_likes").select("videos(category, user_id)").eq("user_id", user!.id).limit(200),
-        supabase.from("video_views").select("video_id, seconds_watched, total_seconds, videos(category, user_id)").eq("user_id", user!.id).order("created_at", { ascending: false }).limit(300),
-        supabase.from("video_saves").select("videos(category, user_id)").eq("user_id", user!.id).limit(100),
-        supabase.from("follows").select("following_id").eq("follower_id", user!.id),
+        supabase.from("video_likes").select("videos(category, user_id)").eq("user_id", user?.id ?? "").limit(200),
+        supabase.from("video_views").select("video_id, seconds_watched, total_seconds, videos(category, user_id)").eq("user_id", user?.id ?? "").order("created_at", { ascending: false }).limit(300),
+        supabase.from("video_saves").select("videos(category, user_id)").eq("user_id", user?.id ?? "").limit(100),
+        supabase.from("follows").select("following_id").eq("follower_id", user?.id ?? ""),
       ]);
       const sig = emptySignals();
       const { catScore, creatorScore } = sig;
@@ -242,281 +204,61 @@ function FeedPage() {
     return rankFeed(shorts as any[], tunedSignals, "short");
   }, [shorts, tunedSignals]);
 
-  // streak
-  const { data: streak } = useQuery({
-    queryKey: ["my-streak", user?.id],
-    enabled: !!user,
-    queryFn: async () => {
-      const { data } = await supabase.from("streaks").select("*").eq("user_id", user!.id).maybeSingle();
-      return data;
-    },
-  });
-
-  // leaders
-  const { data: leaders = [] } = useQuery({
-    queryKey: ["leaders"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("profiles")
-        .select("id, username, display_name, avatar_url, total_views, follower_count, creator_tier")
-        .order("follower_count", { ascending: false })
-        .limit(5);
-      return data ?? [];
-    },
-  });
-
-  // my ranking
-  const { data: myRank } = useQuery({
-    queryKey: ["my-rank", user?.id],
-    enabled: !!user,
-    queryFn: async () => {
-      const { data: me } = await supabase.from("profiles").select("id, username, display_name, avatar_url, follower_count").eq("id", user!.id).maybeSingle();
-      if (!me) return null;
-      const { count } = await supabase.from("profiles").select("id", { count: "exact", head: true }).gt("follower_count", me.follower_count ?? 0);
-      return { ...me, rank: (count ?? 0) + 1 };
-    },
-  });
-
-  // trending topics from tags
-  const trendingTopics = useMemo(() => {
-    const tally = new Map<string, number>();
-    (videos as any[]).forEach(v => (v.tags ?? []).forEach((t: string) => tally.set(t, (tally.get(t) ?? 0) + 1)));
-    return [...tally.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
-  }, [videos]);
-
   const setSearch = (patch: Partial<Search>) => navigate({ search: (prev: any) => ({ ...prev, ...patch }) as any });
 
-  const rail = (
-    <>
-      {user && (
-        <div className="border-b border-rise pb-6">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Your streak</h3>
-          </div>
-          <div className="rounded-md border border-rise bg-bg-card p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Flame className="w-5 h-5 text-brand-orange" />
-                <span className="font-bold">{streak?.current_streak ?? 0}-day streak</span>
-              </div>
-              <span className="font-stat font-black text-2xl text-brand-orange">{streak?.current_streak ?? 0}</span>
-            </div>
-            <StreakBars current={streak?.current_streak ?? 0} />
-          </div>
-        </div>
-      )}
-
-      <div className="border-b border-rise pb-6">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Top operators</h3>
-          <Trophy className="w-4 h-4 text-accent-gold" />
-        </div>
-        <ul className="space-y-2">
-          {leaders.map((l: any, i: number) => (
-            <li key={l.id}>
-              <Link to="/$username" params={{ username: l.username }} className="flex items-center gap-3 p-2 rounded-lg hover:bg-bg-surface">
-                <span className={`font-stat font-black w-5 text-sm ${i === 0 ? "text-accent-gold" : i === 1 ? "text-text-secondary" : i === 2 ? "text-brand-orange" : "text-text-tertiary"}`}>{i + 1}</span>
-                <UserAvatar src={l.avatar_url} name={l.display_name ?? l.username} />
-                <div className="flex-1 min-w-0">
-                  <div className="font-semibold truncate text-sm">{l.display_name ?? l.username}</div>
-                  <div className="text-xs text-text-tertiary font-stat">{l.follower_count ?? 0} followers</div>
-                </div>
-                <span className="text-xs font-stat font-bold text-text-secondary">{formatK(l.total_views ?? 0)}</span>
-              </Link>
-            </li>
-          ))}
-          {myRank && !leaders.some((l: any) => l.username === myRank.username) && (
-            <li className="border-t border-rise pt-2 mt-2">
-              <div className="flex items-center gap-3 p-2 rounded-lg bg-bg-surface">
-                <span className="font-stat font-black w-5 text-sm text-text-tertiary">{myRank.rank}</span>
-                <UserAvatar src={myRank.avatar_url} name={myRank.display_name ?? myRank.username} />
-                <div className="flex-1 min-w-0">
-                  <div className="font-semibold truncate text-sm">You ({myRank.username})</div>
-                  <div className="text-xs text-text-tertiary font-stat">{myRank.follower_count ?? 0} followers</div>
-                </div>
-              </div>
-            </li>
-          )}
-        </ul>
-      </div>
-
-      <div className="pb-4">
-        <h3 className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary mb-3">Trending topics</h3>
-        <ul className="space-y-1">
-          {trendingTopics.length === 0 && <li className="text-text-tertiary text-sm">No topics yet.</li>}
-          {trendingTopics.map(([tag, count]) => (
-            <li key={tag}>
-              <Button
-                variant="ghost"
-                onClick={() => navigate({ search: (prev: any) => ({ ...prev, q: tag }) as any })}
-                className="h-auto w-full justify-between p-2 rounded-md text-left"
-              >
-                <span className="font-semibold text-sm">#{tag}</span>
-                <span className="text-xs text-text-tertiary font-stat">{count} videos</span>
-              </Button>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </>
-  );
-
   return (
-    <AppShell rail={rail}>
+    <AppShell>
       {user && <IntentGateway onSaved={setIntentCats} />}
-
-      {/* category pills */}
-      <div className="sticky top-14 sm:top-16 z-20 -mx-3 px-3 sm:-mx-5 sm:px-5 lg:-mx-7 lg:px-7 py-3 mb-5 flex gap-2 overflow-x-auto scrollbar-none bg-background/95 backdrop-blur-xl border-b border-rise">
+      <div className="feed-categories sticky top-14 z-20 px-3 sm:px-0 py-3 mb-5 flex gap-3 overflow-x-auto scrollbar-none bg-background">
         {CATEGORIES.map(c => (
-          <Button
-            variant={(cat === c || (c === "all" && cat === "all")) ? "default" : "secondary"}
-            size="sm"
-            key={c}
+          <Button variant={cat === c ? "default" : "secondary"} size="sm" key={c}
             onClick={() => setSearch({ cat: c === "all" ? undefined : c, view: "home" })}
-            className={`shrink-0 rounded-md px-4 capitalize border transition-colors ${
-              (cat === c || (c === "all" && cat === "all"))
-                ? "border-primary"
-                : "bg-bg-surface border-rise text-text-secondary hover:text-text-primary"
-            }`}
-          >
-            {c}
-          </Button>
+            className="shrink-0 rounded-lg px-3 capitalize text-sm h-8 font-medium">{c}</Button>
         ))}
       </div>
-
-      {isLoading ? (
-        <div className="text-text-secondary">Loading the arena…</div>
+      {isLoading ? <div className="feed-grid" aria-label="Loading videos">{Array.from({ length: 9 }, (_, i) => <div key={i} className="animate-pulse"><div className="aspect-video rounded-lg bg-secondary" /><div className="flex gap-3 pt-3 px-3 sm:px-0"><div className="size-9 rounded-full bg-secondary shrink-0" /><div className="w-full"><div className="h-4 w-4/5 bg-secondary rounded" /><div className="h-3 w-1/2 bg-secondary rounded mt-3" /></div></div></div>)}</div> : isError ? (
+        <div className="py-20 px-4 text-center"><h1 className="text-xl font-semibold">Videos couldn’t load</h1><p className="text-text-secondary mt-2">Check your connection and try again.</p><Button variant="secondary" onClick={() => refetch()} className="mt-5 rounded-full">Try again</Button></div>
       ) : (
-        <div className="space-y-10">
+        <div className="space-y-9">
+          {(q || view !== "home") && <h1 className="text-xl font-semibold px-3 sm:px-0">{q ? `Results for “${q}”` : view === "later" ? "Watch later" : view === "liked" ? "Liked videos" : "History"}</h1>}
+          {filteredVideos.length > 0 && <section className="feed-grid" aria-label="Recommended videos">{filteredVideos.slice(0,6).map((v: any) => <VideoCard key={v.id} video={v} />)}</section>}
           {view === "home" && !q && rankedShorts.length > 0 && <ShortsShelf shorts={rankedShorts} />}
-
-          {filteredVideos.length === 0 ? (
-            rankedShorts.length === 0 || view !== "home" || q ? (
-              <div className="border border-rise bg-bg-card p-12 text-center rounded-md">
-                <p className="text-text-secondary">{q ? `No matches for "${q}"` : "No videos here yet."}</p>
-                <Link to="/studio/upload" className="btn-primary inline-block mt-4">Upload one</Link>
-              </div>
-            ) : (
-              <div className="border border-rise bg-bg-card p-8 text-center rounded-md">
-                <p className="text-text-secondary">No long-form videos yet — watch the shorts above.</p>
-                <Link to="/studio/upload" search={{ type: "long" } as any} className="btn-primary inline-block mt-4">Upload a video</Link>
-              </div>
-            )
-          ) : (
-            <section>
-              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4 mb-5">
-                <div className="min-w-0">
-                  <p className="text-[11px] uppercase font-bold text-brand-orange">Built around your momentum</p>
-                  <h1 className="mt-1 text-2xl font-extrabold truncate">{view === "home" && !q ? "Your mix" : q ? `Results for “${q}”` : view}</h1>
-                </div>
-                <Button variant="ghost" size="sm" className="shrink-0 text-text-secondary" onClick={() => setSearch({ view: "later" })}>
-                  <ListPlus /> Watch later
-                </Button>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-x-5 gap-y-8">
-                {filteredVideos.map((v: any) => <VideoCard key={v.id} video={v} />)}
-              </div>
-            </section>
-          )}
+          {filteredVideos.length > 6 && <section className="feed-grid" aria-label="More videos">{filteredVideos.slice(6).map((v: any) => <VideoCard key={v.id} video={v} />)}</section>}
+          {filteredVideos.length === 0 && (rankedShorts.length === 0 || view !== "home" || q) && <div className="py-20 px-4 text-center">
+            <Search className="size-10 mx-auto mb-4 text-text-secondary" />
+            <h1 className="text-xl font-semibold">{q ? "No results found" : "No videos here yet"}</h1>
+            <p className="mt-2 text-text-secondary">{q ? "Try different keywords or another category." : "New uploads will appear here."}</p>
+            <Button asChild variant="secondary" className="mt-5 rounded-full"><Link to="/studio/upload">Upload a video</Link></Button>
+          </div>}
         </div>
       )}
     </AppShell>
   );
 }
 
-const ICONS: Record<string, string> = {
-  discipline: "🔥", fitness: "💪", study: "📚", entrepreneur: "🚀", mindset: "🧠", finance: "💰", morning: "🌅",
-};
-
-function SideBtn({ active, onClick, icon, label, dot, disabled }: { active?: boolean; onClick: () => void; icon: React.ReactNode; label: string; dot?: boolean; disabled?: boolean }) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold capitalize transition-colors ${
-        active ? "bg-bg-surface text-text-primary" : "text-text-secondary hover:text-text-primary hover:bg-bg-surface/60"
-      } ${disabled ? "opacity-40 cursor-not-allowed" : ""}`}
-    >
-      {icon}
-      <span className="flex-1 text-left">{label}</span>
-      {dot && <span className="w-2 h-2 rounded-full bg-brand-orange" />}
-    </button>
-  );
-}
-
-function SideLink({ to, params, icon, label, disabled }: { to: string; params?: any; icon: React.ReactNode; label: string; disabled?: boolean }) {
-  if (disabled) {
-    return (
-      <div className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold text-text-tertiary opacity-40 cursor-not-allowed">
-        {icon}<span>{label}</span>
-      </div>
-    );
-  }
-  return (
-    <Link
-      to={to as any}
-      params={params}
-      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold text-text-secondary hover:text-text-primary hover:bg-bg-surface/60"
-      activeProps={{ className: "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold bg-bg-surface text-text-primary" }}
-    >
-      {icon}<span>{label}</span>
-    </Link>
-  );
-}
-
 function VideoCard({ video }: { video: any }) {
   const profile = Array.isArray(video.profiles) ? video.profiles[0] : video.profiles;
-  const badge = CAT_BADGE[video.category] ?? "bg-bg-surface text-text-secondary";
-  return (
-    <article className="group min-w-0">
-      <Link to="/watch/$id" params={{ id: video.id }} className="block relative aspect-video overflow-hidden rounded-md bg-bg-card">
-      <div className={`absolute inset-0 bg-gradient-to-br ${CAT_BG[video.category] ?? "from-bg-card to-bg-surface"}`}>
-        {video.thumbnail_url ? (
-          <img src={video.thumbnail_url} alt={video.title} className="w-full h-full object-cover opacity-90 transition duration-300 group-hover:scale-[1.02] group-hover:opacity-100" loading="lazy" />
-        ) : (
-          <video src={video.video_url} muted playsInline preload="none"
-            onMouseEnter={(e) => e.currentTarget.play().catch(()=>{})}
-            onMouseLeave={(e) => { e.currentTarget.pause(); e.currentTarget.currentTime = 0; }}
-            className="w-full h-full object-cover" />
-        )}
-        <span className={`hidden sm:inline absolute top-2 left-2 text-[10px] px-2 py-0.5 rounded uppercase font-bold tracking-wider ${badge}`}>{video.category}</span>
-        <span className="absolute bottom-2 right-2 text-[11px] px-1.5 py-0.5 rounded bg-black/80 font-stat">{fmtDuration(video.duration)}</span>
-      </div></Link>
-      <div className="pt-3 flex gap-3">
-        <UserAvatar src={profile?.avatar_url} name={profile?.display_name ?? profile?.username} />
-        <div className="min-w-0 flex-1">
-          <Link to="/watch/$id" params={{ id: video.id }} className="font-display font-bold leading-snug line-clamp-2 text-[15px] group-hover:text-brand-orange">{video.title}</Link>
-          <div className="text-xs text-text-tertiary font-stat mt-1 truncate">
-            {profile ? `${profile.display_name ?? profile.username} · ` : ""}{formatK(video.view_count)} views · {timeAgo(video.created_at)}
-          </div>
-        </div><Button variant="ghost" size="icon" className="-mt-2 shrink-0 rounded-full text-text-tertiary" aria-label="More options"><MoreVertical /></Button>
+  return <article className="group min-w-0">
+    <Link to="/watch/$id" params={{ id: video.id }} className="feed-video-image block relative aspect-video overflow-hidden rounded-lg bg-media">
+      {video.thumbnail_url ? <img src={video.thumbnail_url} alt={video.title} className="w-full h-full object-cover" loading="lazy" /> : <video src={video.video_url} muted playsInline preload="metadata" onMouseEnter={e => e.currentTarget.play().catch(() => {})} onMouseLeave={e => { e.currentTarget.pause(); e.currentTarget.currentTime = 0; }} className="w-full h-full object-cover" />}
+      <span className="absolute bottom-2 right-2 text-xs font-medium px-1 py-0.5 rounded bg-media/85 text-media-foreground">{fmtDuration(video.duration)}</span>
+    </Link>
+    <div className="feed-video-info pt-3 flex gap-3">
+      {profile?.username ? <Link to="/$username" params={{ username: profile.username }} className="shrink-0" aria-label={`${profile.display_name ?? profile.username}'s channel`}><UserAvatar src={profile.avatar_url} name={profile.display_name ?? profile.username} className="size-9" /></Link> : <UserAvatar name="Creator" className="size-9" />}
+      <div className="min-w-0 flex-1">
+        <Link to="/watch/$id" params={{ id: video.id }} className="video-title font-semibold leading-[1.4] line-clamp-2 text-base">{video.title}</Link>
+        {profile?.username && <Link to="/$username" params={{ username: profile.username }} className="video-meta block text-sm text-text-secondary mt-1 truncate hover:text-foreground">{profile.display_name ?? profile.username}</Link>}
+        <div className="video-meta text-sm text-text-secondary">{formatK(video.view_count)} views · {timeAgo(video.created_at)}</div>
       </div>
-    </article>
-  );
-}
-
-
-function StreakBars({ current }: { current: number }) {
-  // 7-day visualization — bars filled up to `current` (max 7), with growing height
-  const bars = Array.from({ length: 7 }, (_, i) => {
-    const filled = i < Math.min(current, 7);
-    const h = 30 + i * 8; // px
-    return { filled, h };
-  });
-  return (
-    <div className="flex items-end gap-1.5 h-20">
-      {bars.map((b, i) => (
-        <div key={i} className="flex-1 rounded-md" style={{
-          height: `${b.h}px`,
-          background: b.filled ? "linear-gradient(to top, #ff6a00, #ffb86b)" : "color-mix(in oklab, var(--bg-surface) 70%, transparent)",
-          border: "1px solid color-mix(in oklab, white 8%, transparent)",
-        }} />
-      ))}
+      <details className="video-menu shrink-0 -mt-1"><summary aria-label={`Options for ${video.title}`} title="Video options"><MoreVertical className="size-5" /></summary><div className="video-menu-panel">
+        <Button asChild variant="ghost" className="w-full justify-start"><Link to="/watch/$id" params={{ id: video.id }}><Play /> Watch video</Link></Button>
+        {profile?.username && <Button asChild variant="ghost" className="w-full justify-start"><Link to="/$username" params={{ username: profile.username }}><User /> View channel</Link></Button>}
+        <Button asChild variant="ghost" className="w-full justify-start"><Link to="/feed" search={{ view: "later" }}><Clock /> Watch later</Link></Button>
+      </div></details>
     </div>
-  );
+  </article>;
 }
 
-type Signals = { catScore: Map<string, number>; creatorScore: Map<string, number> } | undefined;
 function patchProfileInVideo(video: any, row: any) {
   if (!video || video.user_id !== row.id) return video;
   const current = Array.isArray(video.profiles) ? video.profiles[0] : video.profiles;
@@ -554,58 +296,18 @@ function timeAgo(iso: string) {
 
 function ShortsShelf({ shorts }: { shorts: any[] }) {
   const railRef = useRef<HTMLDivElement>(null);
-  const scroll = (dir: number) => {
-    const el = railRef.current;
-    if (!el) return;
-    el.scrollBy({ left: dir * el.clientWidth * 0.9, behavior: "smooth" });
-  };
-  return (
-    <section className="border-y border-rise py-5">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <span className="w-7 h-7 rounded-md bg-brand-orange flex items-center justify-center">
-            <Play className="w-4 h-4 fill-current text-primary-foreground" />
-          </span>
-          <div><h2 className="font-display font-extrabold text-xl">Daily Sparks</h2><p className="text-xs text-text-tertiary">Fast ideas from your creator mix</p></div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="secondary" size="icon" onClick={() => scroll(-1)} className="hidden sm:inline-flex rounded-full" aria-label="Scroll left">
-            <ChevronLeft className="w-4 h-4" />
-          </Button>
-          <Button variant="secondary" size="icon" onClick={() => scroll(1)} className="hidden sm:inline-flex rounded-full" aria-label="Scroll right">
-            <ChevronRight className="w-4 h-4" />
-          </Button>
-          <Link to="/shorts" className="text-xs font-bold uppercase tracking-wider text-text-secondary hover:text-text-primary ml-1">See all</Link>
-        </div>
-      </div>
-      <div ref={railRef} className="flex gap-3 overflow-x-auto scrollbar-none snap-x">
-
-        {shorts.map((s: any) => {
-          const p = Array.isArray(s.profiles) ? s.profiles[0] : s.profiles;
-          return (
-            <Link
-              key={s.id}
-              to="/shorts"
-              className="relative shrink-0 snap-start w-[142px] sm:w-[160px] lg:w-[172px] aspect-[9/16] rounded-md overflow-hidden bg-bg-surface border border-rise group"
-            >
-              {s.thumbnail_url ? (
-                <img src={s.thumbnail_url} alt={s.title} className="w-full h-full object-cover" loading="lazy" />
-              ) : (
-                <video src={s.video_url} muted playsInline preload="metadata" className="w-full h-full object-cover" />
-              )}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-transparent" />
-              <div className="absolute inset-x-0 bottom-0 p-2.5">
-                <div className="text-white text-xs font-bold line-clamp-2 leading-tight">{s.title}</div>
-                <div className="mt-1 flex items-center gap-1.5 text-[10px] text-white/80 font-stat">
-                  <Play className="w-3 h-3 fill-white" />
-                  <span>{formatK(s.view_count ?? 0)}</span>
-                  {p && <span className="truncate ml-1">@{p.username}</span>}
-                </div>
-              </div>
-            </Link>
-          );
-        })}
-      </div>
-    </section>
-  );
+  const scroll = (dir: number) => { const el = railRef.current; if (el) el.scrollBy({ left: dir * el.clientWidth * 0.9, behavior: "smooth" }); };
+  return <section className="py-2 px-3 sm:px-0">
+    <div className="flex items-center justify-between mb-5"><h2 className="flex items-center gap-2 text-xl font-bold"><CompassMark /> Shorts</h2><div className="flex gap-2">
+      <Button variant="secondary" size="icon" onClick={() => scroll(-1)} className="hidden sm:inline-flex rounded-full" title="Previous Shorts" aria-label="Previous Shorts"><ChevronLeft /></Button>
+      <Button variant="secondary" size="icon" onClick={() => scroll(1)} className="hidden sm:inline-flex rounded-full" title="Next Shorts" aria-label="Next Shorts"><ChevronRight /></Button>
+    </div></div>
+    <div ref={railRef} className="shorts-grid scrollbar-none">
+      {shorts.map((s: any) => <article key={s.id} className="short-tile min-w-0 shrink-0">
+        <Link to="/shorts" className="block aspect-[9/16] overflow-hidden rounded-lg bg-media">{s.thumbnail_url ? <img src={s.thumbnail_url} alt={s.title} className="w-full h-full object-cover" loading="lazy" /> : <video src={s.video_url} muted playsInline preload="metadata" className="w-full h-full object-cover" />}</Link>
+        <Link to="/shorts" className="mt-3 block text-base font-semibold line-clamp-2 leading-snug">{s.title}</Link><p className="text-sm text-text-secondary mt-1">{formatK(s.view_count ?? 0)} views</p>
+      </article>)}
+    </div>
+  </section>;
 }
+function CompassMark() { return <svg viewBox="0 0 24 24" className="size-7 text-brand-orange" fill="currentColor" aria-hidden="true"><path d="m16.9 1.6-12 7A4 4 0 0 0 5 15.5l2 1.1-1.6 1a3.2 3.2 0 0 0 3.2 5.5l10.6-6.2a4 4 0 0 0-.1-7L17 8.8l3.1-1.7a3.2 3.2 0 0 0-3.2-5.5ZM10 8.5l6 3.5-6 3.5z" /></svg>; }
