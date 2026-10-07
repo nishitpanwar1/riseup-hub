@@ -1,8 +1,6 @@
 # Roadmap
-- [x] Redesign the main feed as the responsive Control Wall creator experience
-- [ ] Migrate remaining pages to the shared adaptive layout
-- [ ] Gate signed-out interactive actions
-- [ ] Add shared guest viewing allowance prompt
-- [ ] Add missing route metadata
-- [ ] Verify phone, tablet, laptop, and TV layouts
-- [ ] Resolve build and runtime errors
+- [ ] Replace the rejected interface with a YouTube-like visual system
+- [ ] Rebuild shared navigation for phone, PC, and TV
+- [ ] Restyle the feed and migrate remaining page navigation without changing live behavior
+- [ ] Complete content-page metadata
+- [ ] Verify layouts, navigation, and existing error signals
