@@ -127,7 +127,6 @@ function FeedPage() {
         if (!v?.category) return;
         const ratio = r.total_seconds > 0 ? Math.min(1, (r.seconds_watched ?? 0) / r.total_seconds) : 0.4;
         const cur = retentionTally.get(v.category) ?? { sum: 0, n: 0 };
-        retentionTally.set(v.category, { sum: cur + 0, n: cur.n + 1 } as any);
         retentionTally.set(v.category, { sum: cur.sum + ratio, n: cur.n + 1 });
       });
       retentionTally.forEach((t, k) => sig.retention.set(k, t.sum / Math.max(1, t.n)));
