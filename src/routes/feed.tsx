@@ -3,7 +3,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Play, ChevronLeft, ChevronRight, MoreVertical, Clock, User, Search } from "lucide-react";
 import { AppShell } from "@/components/shell/AppShell";
-import { UserAvatar } from "@/components/UserAvatar";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { IntentGateway } from "@/components/IntentGateway";
@@ -90,7 +89,7 @@ function FeedPage() {
     },
   });
 
-  // shorts shelf — always fetch, mixed into feed like YouTube
+  // shorts shelf — always fetch, mixed into feed
   const { data: shorts = [] } = useQuery({
     queryKey: ["feed-shorts", cat],
     queryFn: async () => {
@@ -128,6 +127,7 @@ function FeedPage() {
         if (!v?.category) return;
         const ratio = r.total_seconds > 0 ? Math.min(1, (r.seconds_watched ?? 0) / r.total_seconds) : 0.4;
         const cur = retentionTally.get(v.category) ?? { sum: 0, n: 0 };
+        retentionTally.set(v.category, { sum: cur + 0, n: cur.n + 1 } as any);
         retentionTally.set(v.category, { sum: cur.sum + ratio, n: cur.n + 1 });
       });
       retentionTally.forEach((t, k) => sig.retention.set(k, t.sum / Math.max(1, t.n)));
@@ -191,7 +191,7 @@ function FeedPage() {
           .filter(Boolean).join(" ").toLowerCase().includes(term);
       });
     }
-    // Ranking algorithm (YouTube-style): engagement + freshness + personalization
+    // Ranking algorithm: engagement + freshness + personalization
     if (view === "home" && cat !== "trending") {
       return rankFeed(list as any[], tunedSignals, "long");
     }
@@ -209,26 +209,25 @@ function FeedPage() {
   return (
     <AppShell>
       {user && <IntentGateway onSaved={setIntentCats} />}
-      <div className="feed-categories sticky top-14 z-20 px-3 sm:px-0 py-3 mb-5 flex gap-3 overflow-x-auto scrollbar-none bg-background">
+      <div className="feed-categories sticky top-14 z-20 px-3 sm:px-0 py-3 mb-6 flex gap-2 overflow-x-auto scrollbar-none bg-background border-b border-rise">
         {CATEGORIES.map(c => (
-          <Button variant={cat === c ? "default" : "secondary"} size="sm" key={c}
-            onClick={() => setSearch({ cat: c === "all" ? undefined : c, view: "home" })}
-            className="shrink-0 rounded-lg px-3 capitalize text-sm h-8 font-medium">{c}</Button>
+          <button key={c} onClick={() => setSearch({ cat: c === "all" ? undefined : c, view: "home" })}
+            className={`chip-tab ${cat === c ? "is-active" : ""}`}>{c}</button>
         ))}
       </div>
-      {isLoading ? <div className="feed-grid" aria-label="Loading videos">{Array.from({ length: 9 }, (_, i) => <div key={i} className="animate-pulse"><div className="aspect-video rounded-lg bg-secondary" /><div className="flex gap-3 pt-3 px-3 sm:px-0"><div className="size-9 rounded-full bg-secondary shrink-0" /><div className="w-full"><div className="h-4 w-4/5 bg-secondary rounded" /><div className="h-3 w-1/2 bg-secondary rounded mt-3" /></div></div></div>)}</div> : isError ? (
-        <div className="py-20 px-4 text-center"><h1 className="text-xl font-semibold">Videos couldn’t load</h1><p className="text-text-secondary mt-2">Check your connection and try again.</p><Button variant="secondary" onClick={() => refetch()} className="mt-5 rounded-full">Try again</Button></div>
+      {isLoading ? <div className="feed-grid" aria-label="Loading videos">{Array.from({ length: 9 }, (_, i) => <div key={i} className="animate-pulse"><div className="aspect-video corner-cut bg-bg-surface" /><div className="pt-3 px-3 sm:px-0"><div className="h-4 w-4/5 bg-bg-surface rounded-sm" /><div className="h-3 w-1/2 bg-bg-surface rounded-sm mt-3" /></div></div>)}</div> : isError ? (
+        <div className="py-20 px-4 text-center"><h1 className="text-xl font-bold">Videos couldn’t load</h1><p className="text-text-secondary mt-2">Check your connection and try again.</p><Button variant="secondary" onClick={() => refetch()} className="mt-5 rounded-sm">Try again</Button></div>
       ) : (
-        <div className="space-y-9">
-          {(q || view !== "home") && <h1 className="text-xl font-semibold px-3 sm:px-0">{q ? `Results for “${q}”` : view === "later" ? "Watch later" : view === "liked" ? "Liked videos" : "History"}</h1>}
+        <div className="space-y-10">
+          {(q || view !== "home") && <h1 className="font-display text-lg font-black uppercase tracking-tight px-3 sm:px-0 flex items-center gap-2.5"><span className="h-4 w-1.5 bg-brand-orange" aria-hidden="true" />{q ? `Results for “${q}”` : view === "later" ? "Watch later" : view === "liked" ? "Liked videos" : "History"}</h1>}
           {filteredVideos.length > 0 && <section className="feed-grid" aria-label="Recommended videos">{filteredVideos.slice(0,6).map((v: any) => <VideoCard key={v.id} video={v} />)}</section>}
           {view === "home" && !q && rankedShorts.length > 0 && <ShortsShelf shorts={rankedShorts} />}
           {filteredVideos.length > 6 && <section className="feed-grid" aria-label="More videos">{filteredVideos.slice(6).map((v: any) => <VideoCard key={v.id} video={v} />)}</section>}
           {filteredVideos.length === 0 && (rankedShorts.length === 0 || view !== "home" || q) && <div className="py-20 px-4 text-center">
             <Search className="size-10 mx-auto mb-4 text-text-secondary" />
-            <h1 className="text-xl font-semibold">{q ? "No results found" : "No videos here yet"}</h1>
+            <h1 className="text-xl font-bold">{q ? "No results found" : "No videos here yet"}</h1>
             <p className="mt-2 text-text-secondary">{q ? "Try different keywords or another category." : "New uploads will appear here."}</p>
-            <Button asChild variant="secondary" className="mt-5 rounded-full"><Link to="/studio/upload">Upload a video</Link></Button>
+            <Button asChild variant="secondary" className="mt-5 rounded-sm"><Link to="/studio/upload">Upload a video</Link></Button>
           </div>}
         </div>
       )}
@@ -238,19 +237,22 @@ function FeedPage() {
 
 function VideoCard({ video }: { video: any }) {
   const profile = Array.isArray(video.profiles) ? video.profiles[0] : video.profiles;
-  return <article className="group min-w-0">
-    <Link to="/watch/$id" params={{ id: video.id }} className="feed-video-image block relative aspect-video overflow-hidden rounded-lg bg-media">
+  return <article className="group relative min-w-0">
+    <Link to="/watch/$id" params={{ id: video.id }} className="feed-video-image corner-cut block relative aspect-video overflow-hidden rounded-none bg-media">
       {video.thumbnail_url ? <img src={video.thumbnail_url} alt={video.title} className="w-full h-full object-cover" loading="lazy" /> : <video src={video.video_url} muted playsInline preload="metadata" onMouseEnter={e => e.currentTarget.play().catch(() => {})} onMouseLeave={e => { e.currentTarget.pause(); e.currentTarget.currentTime = 0; }} className="w-full h-full object-cover" />}
-      <span className="absolute bottom-2 right-2 text-xs font-medium px-1 py-0.5 rounded bg-media/85 text-media-foreground">{fmtDuration(video.duration)}</span>
+      <span className="absolute bottom-2 right-2 font-mono text-[11px] px-1.5 py-0.5 bg-media/85 text-media-foreground tabular-nums">{fmtDuration(video.duration)}</span>
+      {video.category && <span className="absolute left-2 top-2 font-mono text-[10px] uppercase tracking-wide px-1.5 py-0.5 bg-bg-card/90 border border-rise text-text-primary">{video.category}</span>}
     </Link>
-    <div className="feed-video-info pt-3 flex gap-3">
-      {profile?.username ? <Link to="/$username" params={{ username: profile.username }} className="shrink-0" aria-label={`${profile.display_name ?? profile.username}'s channel`}><UserAvatar src={profile.avatar_url} name={profile.display_name ?? profile.username} className="size-9" /></Link> : <UserAvatar name="Creator" className="size-9" />}
-      <div className="min-w-0 flex-1">
-        <Link to="/watch/$id" params={{ id: video.id }} className="video-title font-semibold leading-[1.4] line-clamp-2 text-base">{video.title}</Link>
-        {profile?.username && <Link to="/$username" params={{ username: profile.username }} className="video-meta block text-sm text-text-secondary mt-1 truncate hover:text-foreground">{profile.display_name ?? profile.username}</Link>}
-        <div className="video-meta text-sm text-text-secondary">{formatK(video.view_count)} views · {timeAgo(video.created_at)}</div>
+    <div className="feed-video-info pt-2.5 pr-7">
+      <Link to="/watch/$id" params={{ id: video.id }} className="video-title font-display font-bold leading-[1.3] line-clamp-2 text-[15px]">{video.title}</Link>
+      <div className="video-meta meta-tag mt-1.5 flex items-center gap-1.5 flex-wrap">
+        {profile?.username && <Link to="/$username" params={{ username: profile.username }} className="hover:text-brand-orange truncate max-w-[160px]">@{profile.username}</Link>}
+        <span aria-hidden="true">·</span>
+        <span>{formatK(video.view_count)} views</span>
+        <span aria-hidden="true">·</span>
+        <span>{timeAgo(video.created_at)}</span>
       </div>
-      <details className="video-menu shrink-0 -mt-1"><summary aria-label={`Options for ${video.title}`} title="Video options"><MoreVertical className="size-5" /></summary><div className="video-menu-panel">
+      <details className="absolute right-1 top-auto bottom-1 video-menu shrink-0"><summary aria-label={`Options for ${video.title}`} title="Video options"><MoreVertical className="size-4.5 text-text-secondary" /></summary><div className="video-menu-panel">
         <Button asChild variant="ghost" className="w-full justify-start"><Link to="/watch/$id" params={{ id: video.id }}><Play /> Watch video</Link></Button>
         {profile?.username && <Button asChild variant="ghost" className="w-full justify-start"><Link to="/$username" params={{ username: profile.username }}><User /> View channel</Link></Button>}
         <Button asChild variant="ghost" className="w-full justify-start"><Link to="/feed" search={{ view: "later" }}><Clock /> Watch later</Link></Button>
@@ -298,16 +300,19 @@ function ShortsShelf({ shorts }: { shorts: any[] }) {
   const railRef = useRef<HTMLDivElement>(null);
   const scroll = (dir: number) => { const el = railRef.current; if (el) el.scrollBy({ left: dir * el.clientWidth * 0.9, behavior: "smooth" }); };
   return <section className="py-2 px-3 sm:px-0">
-    <div className="flex items-center justify-between mb-5"><h2 className="flex items-center gap-2 text-xl font-bold"><CompassMark /> Shorts</h2><div className="flex gap-2">
-      <Button variant="secondary" size="icon" onClick={() => scroll(-1)} className="hidden sm:inline-flex rounded-full" title="Previous Shorts" aria-label="Previous Shorts"><ChevronLeft /></Button>
-      <Button variant="secondary" size="icon" onClick={() => scroll(1)} className="hidden sm:inline-flex rounded-full" title="Next Shorts" aria-label="Next Shorts"><ChevronRight /></Button>
-    </div></div>
+    <div className="flex items-center justify-between mb-5">
+      <h2 className="flex items-center gap-2.5 font-display text-xl font-black uppercase tracking-tight"><span className="h-5 w-1.5 bg-brand-orange" aria-hidden="true" />Shorts</h2>
+      <div className="flex gap-2">
+        <Button variant="secondary" size="icon" onClick={() => scroll(-1)} className="hidden sm:inline-flex rounded-sm border border-rise" title="Previous Shorts" aria-label="Previous Shorts"><ChevronLeft /></Button>
+        <Button variant="secondary" size="icon" onClick={() => scroll(1)} className="hidden sm:inline-flex rounded-sm border border-rise" title="Next Shorts" aria-label="Next Shorts"><ChevronRight /></Button>
+      </div>
+    </div>
     <div ref={railRef} className="shorts-grid scrollbar-none">
       {shorts.map((s: any) => <article key={s.id} className="short-tile min-w-0 shrink-0">
-        <Link to="/shorts" className="block aspect-[9/16] overflow-hidden rounded-lg bg-media">{s.thumbnail_url ? <img src={s.thumbnail_url} alt={s.title} className="w-full h-full object-cover" loading="lazy" /> : <video src={s.video_url} muted playsInline preload="metadata" className="w-full h-full object-cover" />}</Link>
-        <Link to="/shorts" className="mt-3 block text-base font-semibold line-clamp-2 leading-snug">{s.title}</Link><p className="text-sm text-text-secondary mt-1">{formatK(s.view_count ?? 0)} views</p>
+        <Link to="/shorts" className="block aspect-[9/16] overflow-hidden rounded-none corner-cut bg-media">{s.thumbnail_url ? <img src={s.thumbnail_url} alt={s.title} className="w-full h-full object-cover" loading="lazy" /> : <video src={s.video_url} muted playsInline preload="metadata" className="w-full h-full object-cover" />}</Link>
+        <Link to="/shorts" className="mt-2.5 block text-[14px] font-bold line-clamp-2 leading-snug">{s.title}</Link>
+        <p className="meta-tag mt-1">{formatK(s.view_count ?? 0)} views</p>
       </article>)}
     </div>
   </section>;
 }
-function CompassMark() { return <svg viewBox="0 0 24 24" className="size-7 text-brand-orange" fill="currentColor" aria-hidden="true"><path d="m16.9 1.6-12 7A4 4 0 0 0 5 15.5l2 1.1-1.6 1a3.2 3.2 0 0 0 3.2 5.5l10.6-6.2a4 4 0 0 0-.1-7L17 8.8l3.1-1.7a3.2 3.2 0 0 0-3.2-5.5ZM10 8.5l6 3.5-6 3.5z" /></svg>; }
